@@ -361,6 +361,12 @@ class ZulipSource:
         ]
         return [to_message(m, self.me, self.site) for m in wanted]
 
+    def message(self, message_id: str) -> Message:
+        if not message_id.isdigit():
+            raise SourceError(f"bad zulip message id {message_id!r}")
+        d = self.client.call(f"messages/{message_id}", {"apply_markdown": "false"})
+        return to_message(cast(ZMessage, d["message"]), self.me, self.site)
+
     def thread(self, target: Target, limit: int = 40) -> list[Message]:
         if target.thread is None:
             narrow = [{"operator": "dm", "operand": self.resolve_users(target.to)}]

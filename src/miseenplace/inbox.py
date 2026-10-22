@@ -12,6 +12,7 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 from miseenplace import private
 from miseenplace.chat import Message, Target
@@ -93,7 +94,14 @@ def suggest(item: InboxItem) -> str:
     return "ignore"
 
 
-def is_after(m: Message, item: InboxItem) -> bool:
+class Anchor(Protocol):
+    @property
+    def id(self) -> str: ...
+    @property
+    def ts(self) -> float: ...
+
+
+def is_after(m: Message, item: Anchor) -> bool:
     """Message order, not clock order: ids rise with arrival, timestamps can tie or skew."""
     if m.id.isdigit() and item.id.isdigit():
         return int(m.id) > int(item.id)

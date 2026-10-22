@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from miseenplace.sources.demo import DemoSource
 from miseenplace.tour import seed
 from tests.conftest import run_cli
 
@@ -47,3 +48,29 @@ def test_an_empty_day_is_one_line(tmp_path: Path) -> None:
     assert run_cli(tmp_path, "--source", "demo", "today", "--days", "0.001").out == (
         "0 threads today\n"
     )
+
+
+def reconcile_day(root: Path) -> str:
+    seed(root)
+    DemoSource(root).append("DM: Rowan Hale", "Jordan Rivers", "on it", mine=True)
+    for title, ref in (("review parser", 3), ("changelog", 1)):
+        run_cli(
+            root,
+            "--source",
+            "demo",
+            "add",
+            title,
+            "--ref",
+            f"https://z.example.com/#narrow/id/{ref}",
+            "--no-sync",
+        )
+    return run_cli(root, "--source", "demo", "reconcile").out
+
+
+RECONCILE_BUDGET = 145  # chars for `reconcile` on the demo day (121 measured, about 20% headroom)
+
+
+def test_demo_reconcile_fits_the_budget(tmp_path: Path) -> None:
+    out = reconcile_day(tmp_path)
+    assert 0 < len(out) <= RECONCILE_BUDGET
+    assert all(len(line) <= 90 for line in out.splitlines())

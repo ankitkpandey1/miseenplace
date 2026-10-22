@@ -129,6 +129,12 @@ class DemoSource:
         rows = [m for m in self._read()["messages"] if m["ts"] >= since]
         return [to_message(m) for m in rows if m["mine"] or not only_mine]
 
+    def message(self, message_id: str) -> Message:
+        row = next((m for m in self._read()["messages"] if str(m["id"]) == message_id), None)
+        if row is None:
+            raise SourceError(f"no message {message_id}")
+        return to_message(row)
+
     def thread(self, target: Target, limit: int = 40) -> list[Message]:
         rows = [m for m in self._read()["messages"] if m["where"] == label_of(target)]
         return [to_message(m) for m in rows[-limit:]]

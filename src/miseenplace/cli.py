@@ -8,7 +8,7 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from miseenplace import __version__, personal, today, update
+from miseenplace import __version__, personal, reconcile, today, update
 from miseenplace.assets import skills_dir
 from miseenplace.chat import Target
 from miseenplace.config import CONFIG_NAME, load_config, resolve_root
@@ -22,6 +22,7 @@ from miseenplace.inbox import (
     topic_of,
 )
 from miseenplace.model import (
+    CLOSED,
     KINDS,
     STATES,
     Extras,
@@ -34,7 +35,7 @@ from miseenplace.model import (
 )
 from miseenplace.render import brief, diary_line, format_message, line, standup
 from miseenplace.sources import open_source
-from miseenplace.sources.base import Digestible, Source, SourceError
+from miseenplace.sources.base import Digestible, Lookup, Source, SourceError
 from miseenplace.storage.base import StorageError
 from miseenplace.store import Store
 from miseenplace.tour import tour
@@ -148,6 +149,10 @@ def add_journal_parsers(
     tp.add_argument("-n", type=int, default=5, help="how many (default 5)")
     br = sub.add_parser("brief", help="full view of one item, or every open item in a topic")
     br.add_argument("key", help="item id, topic, or unique title substring")
+    rc = sub.add_parser("reconcile", help="propose state changes for open items from their sources")
+    rc.add_argument("--apply", action="store_true", help="make the changes (default: print only)")
+    rc.add_argument("--sync", action="store_true", help="with --apply: run sync afterwards")
+    rc.add_argument("--by", help="actor to attribute the writes to")
     sub.add_parser("sync", help="pull, render Action Items.md, publish (storage backend decides)")
     su = sub.add_parser("standup", help="Did / Next / Waiting on")
     su.add_argument("--since", default="yesterday", help="yesterday, today, -Nd or YYYY-MM-DD")
@@ -362,6 +367,27 @@ def run_today(src: Source, a: argparse.Namespace) -> None:
     print(today.render(today.involving_me(src.digest(a.days, include_noise=True)), a.days, a.width))
 
 
+def open_lookup(name: str | None, store: Store) -> Lookup:
+    return reconcile.lookup_of(open_source(name, store.root, store.config))
+
+
+def run_reconcile(store: Store, a: argparse.Namespace) -> None:
+    if a.sync and not a.apply:
+        raise MiseError("--sync goes with --apply")
+    items = [i for i in store.load()[1] if i["state"] not in CLOSED]
+    chat = partial(open_lookup, source_name(a), store)
+    changes, notes = reconcile.propose(items, chat, reconcile.pr_checker())
+    for note in notes:
+        print(f"miseenplace: {note}", file=sys.stderr)
+    if a.apply:
+        print(reconcile.report(changes, True) or "0 changes")
+        print(f"applied {reconcile.apply(store, changes, a.by)}")
+        if a.sync:
+            store.sync("reconcile")
+    else:
+        print(reconcile.report(changes, False))
+
+
 def run_new(src: Source, a: argparse.Namespace) -> None:
     """The cursor moves only after every line has been written out."""
     batch = src.fetch(a.cursor, a.init)
@@ -526,7 +552,7 @@ def run_style(store: Store, a: argparse.Namespace) -> None:
 # ---- entry --------------------------------------------------------------------
 
 
-READ_CMDS = ("list", "top", "brief", "standup")
+READ_CMDS = ("list", "top", "brief", "standup", "reconcile")
 NO_AUTO_UPDATE = ("send", "update", "skills")
 
 
@@ -585,6 +611,8 @@ def run(a: argparse.Namespace) -> None:
         refresh_for_read(store)
     if a.cmd in SOURCE_CMDS:
         run_source_cmd(store, a)
+    elif a.cmd == "reconcile":
+        run_reconcile(store, a)
     elif a.cmd == "note-request":
         run_note_request(store, a)
     elif a.cmd == "requests":

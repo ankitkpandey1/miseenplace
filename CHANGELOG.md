@@ -3,6 +3,7 @@
 ## Unreleased
 
 - `mep today [--days N] [--width W]`: the threads of the day that involve you (an @-mention, a DM or a post of yours), one compact block each with the last 3 messages and a state tag: `awaiting you`, `you replied last` or `fyi`. Awaiting-you comes first; answered threads show 2 messages, awaiting ones 3, links and markdown are stripped. About a tenth of the size of `digest`. `compact` also drops a quote-reply's "said" header, which helps `inbox` too.
+- `mep reconcile [--apply] [--sync]`: checks every open item against its sources and prints one line per proposed change (`#12 todo -> waiting: you posted 1043; no reply since`; `0 changes` when none). Chat refs: you posted and they did not answer -> `waiting`; they answered after you -> `todo`. GitHub PR refs (needs `gh`; skipped with one note without it): merged or closed -> `done`. Dry run by default; `--apply` writes through `set`/`done` with a note `reconcile <date>: <reason>`. Sources gain an optional `message(id)` lookup (Zulip, demo).
 
 ## 0.2.0
 

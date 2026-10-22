@@ -86,6 +86,17 @@ class Digestible(Protocol):
     ) -> list[Message]: ...
 
 
+@runtime_checkable
+class Lookup(Protocol):
+    """Optional: find one message by id (reconcile follows a journal ref to its thread)."""
+
+    name: str
+
+    def message(self, message_id: str) -> Message: ...
+
+    def thread(self, target: Target, limit: int = 40) -> list[Message]: ...
+
+
 class Cursors:
     """One tiny file per consumer: <root>/state/cursors/<source>/<name>.
 

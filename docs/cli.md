@@ -20,6 +20,7 @@ Exit codes: 0 ok, 1 usage or journal error, 2 source error (network, auth). Erro
 | `top [-n N]` | what first |
 | `brief ID_OR_TOPIC` | full view |
 | `standup [--since yesterday]` | Did / Next / Waiting on |
+| `reconcile [--apply] [--sync]` | check every open item against its sources and print one line per change, `#N current -> proposed: reason` (`0 changes` when none). Chat refs (message links, the `[inbox:src:N]` mark): you posted after the ref and nobody answered -> `waiting`; they answered after your last message -> `todo` ("new reply"). GitHub PR refs: MERGED or CLOSED -> `done`, via `gh` when installed (otherwise one skip note on stderr). Dry run by default; `--apply` writes through the same store call as `set`/`done` and adds the note `reconcile <date>: <reason>`; `--sync` (with `--apply`) runs `sync` after |
 | `sync` | pull, render the page, publish (storage decides) |
 
 ## Inbox

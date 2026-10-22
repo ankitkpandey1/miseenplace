@@ -29,6 +29,7 @@ Verbatim, never a summary: summaries drift, the user's words do not.
 | User drops it | `mep drop ID` |
 | What first? | `mep top` |
 | Everything about one item or topic | `mep brief ID_OR_TOPIC` |
+| Which open items went stale (replied in chat, PR merged) | `mep reconcile` (dry run, one line per change); show it, then `mep reconcile --apply` only on the user's yes; add `--sync` to publish |
 | Stand-up | `mep standup --since yesterday` |
 
 ## Rules

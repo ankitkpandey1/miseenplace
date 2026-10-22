@@ -5,6 +5,7 @@ it would to a Zulip site. `mode` decides how POST /api/v1/messages ends.
 """
 
 import json
+import re
 import threading
 import time
 import urllib.parse
@@ -22,6 +23,7 @@ class Seen:
     redirect_to: str = ""
     posts: list[dict[str, list[str]]] = field(default_factory=list)
     authorization: list[str | None] = field(default_factory=list)
+    paths: list[str] = field(default_factory=list)  # every GET path seen
     messages: list[dict[str, object]] = field(default_factory=list)  # served by GET /messages
 
 
@@ -39,10 +41,17 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:
             seen.authorization.append(self.headers.get("Authorization"))
+            seen.paths.append(self.path)
             if seen.mode == "redirect":
                 self.send_response(302)
                 self.send_header("Location", seen.redirect_to)
                 self.end_headers()
+                return
+            one = re.fullmatch(r"/api/v1/messages/(\d+)", self.path.split("?")[0])
+            if one:
+                found = [m for m in seen.messages if m["id"] == int(one[1])]
+                reply = {"result": "success", "message": found[0]} if found else {"result": "error"}
+                self.reply(200, json.dumps(reply).encode())
                 return
             body = {"result": "success", "members": [], "messages": seen.messages}
             self.reply(200, json.dumps({**body, "found_oldest": True}).encode())
