@@ -30,3 +30,20 @@ def test_empty_inbox_prints_nothing(tmp_path: Path) -> None:
     for item in ("3", "4", "5"):
         run_cli(tmp_path, "--source", "demo", "triage", item, "--ignore")
     assert run_cli(tmp_path, "--source", "demo", "inbox", "--cursor", "demo").out == ""
+
+
+TODAY_BUDGET = 490  # chars for `today` on the demo day (405 measured, about 20% headroom)
+
+
+def test_demo_today_fits_the_budget(tmp_path: Path) -> None:
+    seed(tmp_path)
+    out = run_cli(tmp_path, "--source", "demo", "today").out
+    assert 0 < len(out) <= TODAY_BUDGET
+    assert "http" not in out and "**" not in out and "\n\n" not in out
+
+
+def test_an_empty_day_is_one_line(tmp_path: Path) -> None:
+    seed(tmp_path)
+    assert run_cli(tmp_path, "--source", "demo", "today", "--days", "0.001").out == (
+        "0 threads today\n"
+    )

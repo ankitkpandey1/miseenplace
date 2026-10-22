@@ -90,6 +90,7 @@ mep inbox                               # only what needs you
 mep triage 12 --todo --eta fri          # journal it
 mep triage 13 --reply-draft "Thursday"  # stores the text, posts nothing
 mep send d1a2b3c4e                      # after your yes on that exact text
+mep today                               # the day's threads that involve you, awaiting-you first
 mep top                                 # what first
 mep standup --since yesterday           # Did / Next / Waiting on
 mep watch                               # block until something needs you

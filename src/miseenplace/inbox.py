@@ -39,6 +39,7 @@ PROMISE_RE = re.compile(
 )
 MENTION_RE = re.compile(r"@_?\*\*([^*|]+)(?:\|\d+)?\*\*")
 QUOTE_RE = re.compile(r"```quote.*?```", re.DOTALL)
+SAID_RE = re.compile(r"^\s*@?_?\*\*[^*]+\*\*\s*\[said\]\([^)]*\):?")  # a quote-reply's header
 URL_RE = re.compile(r"https?://[^\s)>\]]+")
 
 
@@ -76,8 +77,8 @@ class InboxItem:
 
 
 def compact(text: str, width: int) -> str:
-    """One line: quotes dropped, mentions unwrapped, whitespace collapsed, cut at `width`."""
-    text = MENTION_RE.sub(r"@\1", QUOTE_RE.sub("", text))
+    """One line: quotes and their reply header dropped, mentions unwrapped, cut at `width`."""
+    text = MENTION_RE.sub(r"@\1", SAID_RE.sub("", QUOTE_RE.sub("", text)))
     one = " ".join(text.split())
     return one if len(one) <= width else one[: width - 1].rstrip() + "…"
 

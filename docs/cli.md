@@ -37,6 +37,7 @@ Exit codes: 0 ok, 1 usage or journal error, 2 source error (network, auth). Erro
 | `new [--cursor NAME] [--init]` | raw new messages, silent if none |
 | `thread --channel C --topic T` or `--dm NAME` | read a thread |
 | `digest [--days N]` | grouped history for humans |
+| `today [--days N] [--width W]` | threads of the last N days (default 1) that involve you: you were @-mentioned, it is a DM, or you posted. Per thread: state tag, label, message count and the last messages (3 when awaiting you, 2 otherwise), one dense line each: `HH:MM name text`, links and markdown stripped, `you` for yours. An empty day prints `0 threads today`. Awaiting-you first; a header counts each state |
 | `draft TEXT [--channel --topic \| --dm] [--reply-to ID]` | store the exact text; posts nothing |
 | `drafts` | unsent drafts |
 | `send DRAFT_ID [--mark-sent\|--mark-unsent]` | post a stored draft, only an id; the flags record what you found after an unconfirmed send |

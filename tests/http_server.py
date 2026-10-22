@@ -4,6 +4,7 @@ It is not patched into the code under test: the client opens a real connection t
 it would to a Zulip site. `mode` decides how POST /api/v1/messages ends.
 """
 
+import json
 import threading
 import time
 import urllib.parse
@@ -21,6 +22,7 @@ class Seen:
     redirect_to: str = ""
     posts: list[dict[str, list[str]]] = field(default_factory=list)
     authorization: list[str | None] = field(default_factory=list)
+    messages: list[dict[str, object]] = field(default_factory=list)  # served by GET /messages
 
 
 def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
@@ -42,7 +44,8 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
                 self.send_header("Location", seen.redirect_to)
                 self.end_headers()
                 return
-            self.reply(200, b'{"result":"success","members":[],"messages":[]}')
+            body = {"result": "success", "members": [], "messages": seen.messages}
+            self.reply(200, json.dumps({**body, "found_oldest": True}).encode())
 
         def do_POST(self) -> None:
             seen.authorization.append(self.headers.get("Authorization"))

@@ -8,7 +8,7 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from miseenplace import __version__, personal, update
+from miseenplace import __version__, personal, today, update
 from miseenplace.assets import skills_dir
 from miseenplace.chat import Target
 from miseenplace.config import CONFIG_NAME, load_config, resolve_root
@@ -57,7 +57,8 @@ default_actor = "agent"
 # participation_days = 14
 """
 SOURCE_CMDS = (
-    "new", "thread", "digest", "draft", "drafts", "send", "users", "inbox", "triage", "watch",
+    "new", "thread", "digest", "today", "draft", "drafts", "send", "users", "inbox", "triage",
+    "watch",
 )  # fmt: skip
 
 
@@ -193,6 +194,11 @@ def add_inbox_parsers(
     dg.add_argument("--all", action="store_true", help="include noise channels")
     dg.add_argument("--mine", action="store_true", help="only my own messages")
     dg.add_argument("--width", type=int, default=1200)
+    td = sub.add_parser(
+        "today", help="threads of the last N days that involve me, awaiting-you first"
+    )
+    td.add_argument("--days", type=float, default=1)
+    td.add_argument("--width", type=int, default=100)
     d = sub.add_parser("draft", help="store the exact text of a message; nothing is posted")
     add_target_args(d)
     d.add_argument("--reply-to", help="id of the message to quote-reply to")
@@ -350,6 +356,12 @@ def run_digest(src: Source, a: argparse.Namespace) -> None:
         print("\n".join(rows))
 
 
+def run_today(src: Source, a: argparse.Namespace) -> None:
+    if not isinstance(src, Digestible):
+        raise MiseError(f"source {src.name!r} does not offer today; use inbox/thread")
+    print(today.render(today.involving_me(src.digest(a.days, include_noise=True)), a.days, a.width))
+
+
 def run_new(src: Source, a: argparse.Namespace) -> None:
     """The cursor moves only after every line has been written out."""
     batch = src.fetch(a.cursor, a.init)
@@ -451,6 +463,8 @@ def run_source_cmd(store: Store, a: argparse.Namespace) -> None:
             print(format_message(m, a.width))
     elif a.cmd == "digest":
         run_digest(src, a)
+    elif a.cmd == "today":
+        run_today(src, a)
     elif a.cmd == "draft":
         d = src.draft(target_of(a), read_text(a.text))
         print(d.preview())

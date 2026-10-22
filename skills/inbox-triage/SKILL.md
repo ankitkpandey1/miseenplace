@@ -30,6 +30,8 @@ The CLI classifies and does the bookkeeping. You decide only what the human deci
 
 ## Before calling anything pending
 
+For a daily review ("what happened today", "what is waiting on me"), `mep today [--days N]` lists the threads that involve the user with a state tag per thread (`awaiting you`, `you replied last`, `fyi`); it shows their own replies too. Use it instead of `digest`.
+
 The user's own messages never appear in `inbox`. Before telling the human that something is still pending, re-read the thread before calling anything pending: `mep thread --channel C --topic T` (or `--dm NAME`). The user may have answered already.
 
 ## Rules

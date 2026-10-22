@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `mep today [--days N] [--width W]`: the threads of the day that involve you (an @-mention, a DM or a post of yours), one compact block each with the last 3 messages and a state tag: `awaiting you`, `you replied last` or `fyi`. Awaiting-you comes first; answered threads show 2 messages, awaiting ones 3, links and markdown are stripped. About a tenth of the size of `digest`. `compact` also drops a quote-reply's "said" header, which helps `inbox` too.
+
 ## 0.2.0
 
 - Auto-update, like Claude Code: at most once a day `mep` checks PyPI in a detached background process and, when it was installed with `uv tool` or `pipx`, upgrades itself. The new version applies on the next run. Any other install gets one line on stderr, once a day. Opt out with `MISEENPLACE_DISABLE_AUTOUPDATE=1` or `auto_update = false` in `config.toml`; it also stays off in CI, without a terminal and for `send`.
