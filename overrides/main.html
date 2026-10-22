@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block htmltitle %}
+  {% if page.is_homepage %}
+    <title>Chat inbox and work journal for Claude Code - {{ config.site_name }}</title>
+  {% else %}
+    {{ super() }}
+  {% endif %}
+{% endblock %}
+
+{% block extrahead %}
+  {% if page.is_homepage %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "miseenplace",
+    "alternateName": ["mep", "miseenplace-cli"],
+    "description": {{ config.site_description | tojson }},
+    "url": {{ config.site_url | tojson }},
+    "downloadUrl": "https://pypi.org/project/miseenplace-cli/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux, macOS",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "isAccessibleForFree": true,
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "sameAs": [
+      "https://github.com/ankitkpandey1/miseenplace",
+      "https://pypi.org/project/miseenplace-cli/"
+    ]
+  }
+  </script>
+  {% endif %}
+{% endblock %}
