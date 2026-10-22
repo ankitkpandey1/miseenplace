@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "miseenplace-cli"
-version = "0.1.1"
+version = "0.2.0"
 description = "Every ask, in its place. A chef's mise en place for your workday: the asks, promises and nudges from chat, laid out before the day starts. Agent-native."
 readme = "README.md"
 license = "Apache-2.0"

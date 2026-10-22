@@ -15,6 +15,7 @@ from tests.conftest import REPO, run_cli
 ALL_COMMANDS = (
     "add", "set", "done", "drop", "log", "list", "top", "brief", "sync", "standup", "init",
     "new", "thread", "digest", "draft", "drafts", "send", "users", "demo", "skills", "style",
+    "update",
 )  # fmt: skip
 
 

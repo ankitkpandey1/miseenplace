@@ -22,6 +22,7 @@ class Config:
     storage: dict[str, object] = field(default_factory=dict)
     sources: dict[str, SourceTable] = field(default_factory=dict)
     draft_ttl_hours: float = DEFAULT_DRAFT_TTL_HOURS
+    auto_update: bool = True
 
 
 def default_root() -> Path:
@@ -66,6 +67,13 @@ def _ttl(consent: dict[str, object], path: Path) -> float:
     return float(value)
 
 
+def _auto_update(cfg: dict[str, object], path: Path) -> bool:
+    value = cfg.get("auto_update", True)
+    if not isinstance(value, bool):
+        raise MiseError(f"{path}: auto_update must be true or false")
+    return value
+
+
 def load_config(path: Path) -> Config:
     if not path.exists():
         return Config()
@@ -88,4 +96,5 @@ def load_config(path: Path) -> Config:
         storage=_table(cfg, "storage", path),
         sources=cast(dict[str, SourceTable], sources),
         draft_ttl_hours=_ttl(_table(cfg, "consent", path), path),
+        auto_update=_auto_update(cfg, path),
     )

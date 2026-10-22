@@ -18,9 +18,8 @@ mep demo
 Paste this into Claude Code, Codex, Gemini CLI or Cursor:
 
 ```text
-Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills` to find the
-bundled agent skills, copy them into your skills directory, then run the setup skill and
-follow it. Ask me only for things you cannot find out yourself.
+Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills --install DIR`
+with the skills directory for your tool, then run the setup skill and follow it. Ask me only for things you cannot find out yourself.
 ```
 
 ### Where the skills go
@@ -33,10 +32,10 @@ follow it. Ask me only for things you cannot find out yourself.
 | Cursor | `~/.cursor/skills/` (also reads `~/.agents/skills/`) | `.cursor/skills/` |
 
 Paths are from each tool's documentation at the time of writing; if your version differs, check your tool's docs.
-Copy the bundled skills with the directory for your tool (Claude Code shown):
+Copy the bundled skills with the directory for your tool (Claude Code shown). `mep` remembers the directory and refreshes the copies when it updates:
 
 ```bash
-mkdir -p ~/.claude/skills && cp -r "$(mep skills)"/* ~/.claude/skills/
+mep skills --install ~/.claude/skills
 ```
 
 Claude Code can also install it as a plugin, with no copying:
@@ -83,3 +82,9 @@ The first `mep inbox` on a new cursor sets a baseline and prints nothing. Newer 
 ## 6. Sync across machines
 
 Add a private git remote with the git storage backend: [Concepts](concepts.md#storage).
+
+## 7. Updates and uninstall
+
+`mep` checks PyPI once a day in the background and upgrades itself when it was installed with `uv tool` or `pipx`, and otherwise prints a notice; the new version applies on the next run. `mep update` does it now. Turn it off with `MISEENPLACE_DISABLE_AUTOUPDATE=1` or `auto_update = false` in `config.toml` ([details](cli.md#updates)).
+
+To remove it: `uv tool uninstall miseenplace-cli` (or `pipx uninstall miseenplace-cli`) and delete the skills you copied. Your data root is yours to keep or delete.

@@ -1,29 +1,9 @@
 #!/usr/bin/env bash
-# Record docs/assets/demo.gif from `mep demo`. Needs vhs (https://github.com/charmbracelet/vhs)
-# or asciinema plus agg. Run from the repository root.
+# Re-record docs/assets/demo.gif from the real `mep demo` (fictional data, no account).
+# Needs vhs (https://github.com/charmbracelet/vhs) with ttyd, ffmpeg and a Chrome/Chromium on PATH.
+# Run from the repository root with the project installed (uv sync).
 set -euo pipefail
 
-OUT="docs/assets/demo.gif"
-mkdir -p docs/assets
-
-if command -v vhs >/dev/null 2>&1; then
-  tape="$(mktemp --suffix=.tape)"
-  cat >"$tape" <<'TAPE'
-Output docs/assets/demo.gif
-Set FontSize 16
-Set Width 1100
-Set Height 700
-Type "mep demo"
-Enter
-Sleep 12s
-TAPE
-  vhs "$tape"
-elif command -v asciinema >/dev/null 2>&1 && command -v agg >/dev/null 2>&1; then
-  cast="$(mktemp --suffix=.cast)"
-  asciinema rec --command "mep demo" --overwrite "$cast"
-  agg "$cast" "$OUT"
-else
-  echo "install vhs, or asciinema plus agg, then run again" >&2
-  exit 1
-fi
-echo "wrote $OUT"
+command -v vhs >/dev/null 2>&1 || { echo "install vhs (plus ttyd and ffmpeg), then run again" >&2; exit 1; }
+PATH="$PWD/.venv/bin:$PATH" vhs docs/assets/demo.tape
+echo "wrote docs/assets/demo.gif"

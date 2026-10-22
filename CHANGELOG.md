@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Auto-update, like Claude Code: at most once a day `mep` checks PyPI in a detached background process and, when it was installed with `uv tool` or `pipx`, upgrades itself. The new version applies on the next run. Any other install gets one line on stderr, once a day. Opt out with `MISEENPLACE_DISABLE_AUTOUPDATE=1` or `auto_update = false` in `config.toml`; it also stays off in CI, without a terminal and for `send`.
+- `mep update`: check and upgrade now.
+- `mep skills --install DIR` copies the bundled skills into `DIR` and remembers it; an upgrade refreshes the copies (`mep skills --refresh`). `mep skills` still prints the path.
+- README: demo GIF (`docs/assets/demo.tape`, `scripts/record_demo.sh`), sample inbox output, a how-it-works diagram, status and roadmap, updates and uninstall. `scripts/build_llms_full.py` rebuilds `llms-full.txt`.
+
 ## 0.1.1
 
 - Published on PyPI as `miseenplace-cli` (the name `miseenplace` is too close to an existing project). Commands stay `miseenplace` and `mep`.

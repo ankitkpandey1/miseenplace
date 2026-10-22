@@ -52,4 +52,27 @@ Exit codes: 0 ok, 1 usage or journal error, 2 source error (network, auth). Erro
 
 ## Setup
 
-`init` creates the data root and `config.toml`; `demo` runs the guided tour; `skills` prints the path of the bundled skills.
+`init` creates the data root and `config.toml`; `demo` runs the guided tour.
+
+| Command | Purpose |
+|---|---|
+| `skills` | print the path of the bundled skills |
+| `skills --install DIR` | copy the bundled skills into `DIR` and remember `DIR` |
+| `skills --refresh` | copy them again into every remembered directory |
+| `update` | check PyPI now and upgrade if there is a newer version; prints the result |
+
+## Updates
+
+At most once a day, `mep` starts a detached background process that asks `https://pypi.org/pypi/miseenplace-cli/json` for the newest version (3 second timeout; every failure is silent). The check never delays your command. The timestamp and the result are kept in `$XDG_CACHE_HOME/miseenplace/update.json` (default `~/.cache/miseenplace`).
+
+If a newer version exists, the installer is found from the environment's path:
+
+| Installed with | Upgrade command |
+|---|---|
+| `uv tool install` (path contains `uv/tools`) | `uv tool upgrade miseenplace-cli` |
+| `pipx install` (path contains `pipx/venvs`) | `pipx upgrade miseenplace-cli` |
+| anything else (a virtual environment, system Python, a source checkout) | not upgraded; one line on stderr, once a day: `miseenplace X.Y.Z is available: pip install --upgrade miseenplace-cli` |
+
+The new version applies on the next run. After an auto-update or `mep update`, skills copied with `skills --install` are re-copied. After a manual `uv tool upgrade`, run `mep skills --refresh`.
+
+It is off when `MISEENPLACE_DISABLE_AUTOUPDATE` is set (to anything but `0`), when `auto_update = false` is in `config.toml`, when `CI` is set, when stderr is not a terminal, and always for `send`. `mep update` still runs when asked.

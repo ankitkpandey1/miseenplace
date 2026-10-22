@@ -7,17 +7,21 @@
 
 **Every ask, in its place.** An agent-native CLI and set of skills that lay out the asks, promises and nudges from your chat before the day starts: a chef's mise en place for your workday, for Claude Code, Codex, Gemini CLI and Cursor.
 
+[![Docs](https://img.shields.io/badge/docs-ankitkpandey1.github.io-blue)](https://ankitkpandey1.github.io/miseenplace/)
 [![PyPI](https://img.shields.io/pypi/v/miseenplace-cli)](https://pypi.org/project/miseenplace-cli/)
 [![CI](https://github.com/ankitkpandey1/miseenplace/actions/workflows/ci.yml/badge.svg)](https://github.com/ankitkpandey1/miseenplace/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Python](https://img.shields.io/pypi/pyversions/miseenplace-cli)](https://pypi.org/project/miseenplace-cli/)
 
+[Docs](https://ankitkpandey1.github.io/miseenplace/) · [Quickstart](docs/quickstart.md) · [CLI](docs/cli.md) · [Changelog](CHANGELOG.md)
+
+![mep demo: inbox, triage, a draft, a refused send of free text, and a stand-up](https://raw.githubusercontent.com/ankitkpandey1/miseenplace/main/docs/assets/demo.gif)
+
 ## Paste this into your agent
 
 ```text
-Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills` to find the
-bundled agent skills, copy them into your skills directory, then run the setup skill and
-follow it. Ask me only for things you cannot find out yourself.
+Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills --install DIR`
+with the skills directory for your tool, then run the setup skill and follow it. Ask me only for things you cannot find out yourself.
 ```
 
 No account? `uvx --from miseenplace-cli mep demo` runs a two-minute tour on fictional data.
@@ -32,10 +36,10 @@ No account? `uvx --from miseenplace-cli mep demo` runs a two-minute tour on fict
 | Cursor | `~/.cursor/skills/` (also reads `~/.agents/skills/`) | `.cursor/skills/` |
 
 Paths are from each tool's documentation at the time of writing; if your version differs, check your tool's docs.
-Copy the bundled skills with the directory for your tool (Claude Code shown):
+Copy the bundled skills with the directory for your tool (Claude Code shown). `mep` remembers the directory and refreshes the copies when it updates:
 
 ```bash
-mkdir -p ~/.claude/skills && cp -r "$(mep skills)"/* ~/.claude/skills/
+mep skills --install ~/.claude/skills
 ```
 
 Claude Code can also install it as a plugin, with no copying:
@@ -49,7 +53,13 @@ Claude Code can also install it as a plugin, with no copying:
 
 Chat is where work is asked for and promised, and it scrolls away. To-do apps start empty and trust you to copy things in. miseenplace reads your chat, keeps only what needs you, and turns it into an audit-logged action list your agent can drive.
 
-- **One line per ask.** `mep inbox` shows `id · who · where · ask · action`, nothing else. Your own earlier answers hide the asks you already handled.
+- **One line per ask.** `mep inbox` shows `id · who · where · ask · action`, nothing else. Your own earlier answers hide the asks you already handled. Real output from `mep demo`:
+
+  ```text
+  3 · Rowan Hale · DM: Rowan Hale · Could you review the parser PR when you get a chance? It blocks the beta. · todo
+  4 · Sam Okafor · #platform > incident follow… · @Jordan Rivers can you write up the retro for yesterday's outage by Friday? · todo
+  5 · Alex Chen · #platform > release 2.4 · Changelog still pending, ETA? · reply
+  ```
 - **One call per decision.** `mep triage 12 --todo` files the item with link, topic and context filled in.
 - **Agents cannot post free text.** `draft` stores the exact words; `send` takes only a draft id, after you said yes to that text.
 - **Cheap to run.** The CLI does the deterministic work, so a small model can drive it. A tested output budget keeps a ten-message loop near 500 tokens.
@@ -64,6 +74,19 @@ Chat is where work is asked for and promised, and it scrolls away. To-do apps st
 | Agent can drive it | via a UI or an API | terse CLI plus short skills |
 | Agent can post for you | n/a | only a stored draft you approved |
 | Where data lives | the vendor | files you own, optionally in git |
+
+## How it works
+
+```mermaid
+flowchart LR
+    chat["Chat<br/>(Zulip, demo)"] --> mep["mep<br/>inbox, triage"]
+    mep --> journal[("Journal<br/>append-only audit log")]
+    journal --> agent["Your agent"]
+    agent -- "draft (exact words)" --> yes{"Your yes"}
+    yes -- "send DRAFT_ID" --> chat
+```
+
+The CLI reads the chat and does the bookkeeping. The agent reads the short list and writes to the journal. A reply is only a stored draft until you say yes to that exact text.
 
 ## Daily use
 
@@ -103,6 +126,30 @@ The git backend pulls before reads and commits and pushes after writes; a failed
 ## Sources
 
 Zulip and a demo source ship today. A new one takes about 30 minutes: [writing a source](docs/writing-a-source.md).
+
+## Status and roadmap
+
+Alpha. The commands and file formats can still change between 0.x releases; the changelog says when.
+
+- Ships today: Zulip and the demo source, local and git storage, five skills.
+- Wanted: Slack, GitHub notifications and email as sources. Start with [writing a source](docs/writing-a-source.md) and [CONTRIBUTING.md](CONTRIBUTING.md), and open an issue with the `new-source` template first if you want feedback on the design.
+
+## Updates
+
+`mep` checks PyPI at most once a day, in a background process that never delays your command. If a newer version exists and it was installed with `uv tool` or `pipx`, it upgrades itself; the new version applies on the next run, and skills copied with `mep skills --install` are refreshed on an auto-update or `mep update`. Any other install (a virtual environment, system Python, a checkout) only gets a notice: one line to stderr, once a day: `miseenplace X.Y.Z is available: <upgrade command>`.
+
+- Check and upgrade now: `mep update`. If you upgrade by hand (`uv tool upgrade miseenplace-cli`), run `mep skills --refresh` afterwards to refresh the copied skills.
+- Turn it off: `MISEENPLACE_DISABLE_AUTOUPDATE=1`, or `auto_update = false` in `config.toml`.
+- It does not run when stderr is not a terminal, when `CI` is set, or for `mep send`.
+
+## Uninstall
+
+```bash
+uv tool uninstall miseenplace-cli       # or: pipx uninstall miseenplace-cli
+rm -r ~/.claude/skills/{setup,journal,inbox-triage,inbox-watch,learn-style}   # skills you copied
+```
+
+Your data root (`$MISEENPLACE_DIR`, else `~/.local/share/miseenplace`) holds your journal, drafts and style file. It is yours: keep it, or delete it. Uninstalling never touches it. The update state lives in `~/.cache/miseenplace` and is safe to delete.
 
 ## Your data is personal
 
@@ -158,9 +205,8 @@ mep demo
 Paste this into Claude Code, Codex, Gemini CLI or Cursor:
 
 ```text
-Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills` to find the
-bundled agent skills, copy them into your skills directory, then run the setup skill and
-follow it. Ask me only for things you cannot find out yourself.
+Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills --install DIR`
+with the skills directory for your tool, then run the setup skill and follow it. Ask me only for things you cannot find out yourself.
 ```
 
 ### Where the skills go
@@ -173,10 +219,10 @@ follow it. Ask me only for things you cannot find out yourself.
 | Cursor | `~/.cursor/skills/` (also reads `~/.agents/skills/`) | `.cursor/skills/` |
 
 Paths are from each tool's documentation at the time of writing; if your version differs, check your tool's docs.
-Copy the bundled skills with the directory for your tool (Claude Code shown):
+Copy the bundled skills with the directory for your tool (Claude Code shown). `mep` remembers the directory and refreshes the copies when it updates:
 
 ```bash
-mkdir -p ~/.claude/skills && cp -r "$(mep skills)"/* ~/.claude/skills/
+mep skills --install ~/.claude/skills
 ```
 
 Claude Code can also install it as a plugin, with no copying:
@@ -223,6 +269,12 @@ The first `mep inbox` on a new cursor sets a baseline and prints nothing. Newer 
 ## 6. Sync across machines
 
 Add a private git remote with the git storage backend: [Concepts](concepts.md#storage).
+
+## 7. Updates and uninstall
+
+`mep` checks PyPI once a day in the background and upgrades itself when it was installed with `uv tool` or `pipx`, and otherwise prints a notice; the new version applies on the next run. `mep update` does it now. Turn it off with `MISEENPLACE_DISABLE_AUTOUPDATE=1` or `auto_update = false` in `config.toml` ([details](cli.md#updates)).
+
+To remove it: `uv tool uninstall miseenplace-cli` (or `pipx uninstall miseenplace-cli`) and delete the skills you copied. Your data root is yours to keep or delete.
 
 
 <!-- docs/concepts.md -->
@@ -339,7 +391,30 @@ Exit codes: 0 ok, 1 usage or journal error, 2 source error (network, auth). Erro
 
 ## Setup
 
-`init` creates the data root and `config.toml`; `demo` runs the guided tour; `skills` prints the path of the bundled skills.
+`init` creates the data root and `config.toml`; `demo` runs the guided tour.
+
+| Command | Purpose |
+|---|---|
+| `skills` | print the path of the bundled skills |
+| `skills --install DIR` | copy the bundled skills into `DIR` and remember `DIR` |
+| `skills --refresh` | copy them again into every remembered directory |
+| `update` | check PyPI now and upgrade if there is a newer version; prints the result |
+
+## Updates
+
+At most once a day, `mep` starts a detached background process that asks `https://pypi.org/pypi/miseenplace-cli/json` for the newest version (3 second timeout; every failure is silent). The check never delays your command. The timestamp and the result are kept in `$XDG_CACHE_HOME/miseenplace/update.json` (default `~/.cache/miseenplace`).
+
+If a newer version exists, the installer is found from the environment's path:
+
+| Installed with | Upgrade command |
+|---|---|
+| `uv tool install` (path contains `uv/tools`) | `uv tool upgrade miseenplace-cli` |
+| `pipx install` (path contains `pipx/venvs`) | `pipx upgrade miseenplace-cli` |
+| anything else (a virtual environment, system Python, a source checkout) | not upgraded; one line on stderr, once a day: `miseenplace X.Y.Z is available: pip install --upgrade miseenplace-cli` |
+
+The new version applies on the next run. After an auto-update or `mep update`, skills copied with `skills --install` are re-copied. After a manual `uv tool upgrade`, run `mep skills --refresh`.
+
+It is off when `MISEENPLACE_DISABLE_AUTOUPDATE` is set (to anything but `0`), when `auto_update = false` is in `config.toml`, when `CI` is set, when stderr is not a terminal, and always for `send`. `mep update` still runs when asked.
 
 
 <!-- docs/data-model.md -->

@@ -3,13 +3,15 @@
 import argparse
 import os
 import sys
+import time
 from functools import partial
+from pathlib import Path
 from typing import cast
 
-from miseenplace import __version__, personal
+from miseenplace import __version__, personal, update
 from miseenplace.assets import skills_dir
 from miseenplace.chat import Target
-from miseenplace.config import CONFIG_NAME, resolve_root
+from miseenplace.config import CONFIG_NAME, load_config, resolve_root
 from miseenplace.consent import mark_draft, pending_drafts
 from miseenplace.inbox import (
     Inbox,
@@ -43,6 +45,7 @@ CONFIG_TEMPLATE = """\
 actors = ["me", "agent"]        # who may write; --by picks one
 default_actor = "agent"
 # default_source = "zulip"      # or set MISEENPLACE_SOURCE
+# auto_update = false           # skip the daily background update check
 
 # [storage]
 # backend = "git"               # local (default) | git | "package.module:Class"
@@ -246,7 +249,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init", help="create the data root and a config template")
     dm = sub.add_parser("demo", help="two-minute guided tour on fictional data, no account")
     dm.add_argument("--keep-dir", dest="demo_dir", help="run in this empty directory")
-    sub.add_parser("skills", help="print the path of the bundled agent skills")
+    sk = sub.add_parser("skills", help="print the path of the bundled agent skills, or copy them")
+    chosen = sk.add_mutually_exclusive_group()
+    chosen.add_argument("--install", metavar="DIR", help="copy them into DIR; kept fresh on update")
+    chosen.add_argument("--refresh", action="store_true", help="re-copy into every installed DIR")
+    sub.add_parser("update", help="check PyPI now and upgrade if there is a newer version")
     return p
 
 
@@ -506,6 +513,7 @@ def run_style(store: Store, a: argparse.Namespace) -> None:
 
 
 READ_CMDS = ("list", "top", "brief", "standup")
+NO_AUTO_UPDATE = ("send", "update", "skills")
 
 
 def refresh_for_read(store: Store) -> None:
@@ -516,12 +524,47 @@ def refresh_for_read(store: Store) -> None:
         print(f"miseenplace: using local copy ({e})", file=sys.stderr)
 
 
+def run_skills(a: argparse.Namespace) -> None:
+    if a.install:
+        n = update.install_skills(Path(a.install), update.cache_dir())
+        print(f"installed {n} skills into {Path(a.install).expanduser()}")
+    elif a.refresh:
+        print(f"refreshed {update.refresh_skills(update.cache_dir())} skills")
+    else:
+        print(skills_dir())
+
+
+def auto_update_flag(a: argparse.Namespace) -> bool:
+    try:
+        return load_config(resolve_root(a.dir) / CONFIG_NAME).auto_update
+    except MiseError:
+        return True  # a broken config is reported by the command itself
+
+
+def start_auto_update(a: argparse.Namespace) -> None:
+    """Once a day, in the background, never for send; the new version applies on the next run."""
+    if a.cmd in NO_AUTO_UPDATE or not update.auto_enabled(os.environ, sys.stderr.isatty(), True):
+        return
+    if not auto_update_flag(a):
+        return
+    cache, now = update.cache_dir(), time.time()
+    notice = update.pending_notice(cache, now, __version__, update.current_installer())
+    if notice:
+        print(notice, file=sys.stderr)
+    update.start_background_check(cache, now)
+
+
 def run(a: argparse.Namespace) -> None:
     if a.cmd == "demo":
         tour(a.demo_dir)
         return
     if a.cmd == "skills":
-        print(skills_dir())
+        run_skills(a)
+        return
+    if a.cmd == "update":
+        print(
+            update.update_now(update.cache_dir(), update.current_installer(), update.fetch_latest)
+        )
         return
     store = Store(resolve_root(a.dir))
     if a.cmd in READ_CMDS:
@@ -541,6 +584,7 @@ def run(a: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        start_auto_update(args)
         run(args)
     except SourceError as e:
         print(f"miseenplace: {e}", file=sys.stderr)
