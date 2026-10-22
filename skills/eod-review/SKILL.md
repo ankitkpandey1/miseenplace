@@ -11,7 +11,7 @@ Goal: the user's productivity. Fewer people waiting on them, fewer interruptions
 
 - Message anyone: no chat post, mail or PR comment; no `mep send`.
 - Print credentials. Name keys only.
-- Change anything except the journal, the lesson store (`mep lessons`) and the daily stats row (`mep stats --record`).
+- Change anything except the journal, the lesson store (`mep lessons`), the daily stats row (`mep stats --record`) and the ask queue (`mep ask`, `mep asks answer`). Never turn on auto-send for any draft type.
 
 ## Steps
 
@@ -25,8 +25,9 @@ Goal: the user's productivity. Fewer people waiting on them, fewer interruptions
 5. **Escalate repeats.** A lesson that recurs becomes an automatic check (a warning in a draft step, a hook, a gate). Propose the exact change in the report and build it only when the user agrees. Keep it only if it would have caught the original mistake: add its regex as the lesson's `--pattern` and the case above proves it.
 6. **Name the biggest time sink** of the day and the next thing to delegate, automate or batch.
 7. **Record the day.** Ask the user for two numbers, 1-5: how focused the day was and how stressful the backlog is. One question, never infer them. Then `mep stats --record --focus N --stress N`; rerunning replaces today's row. No answer: `mep stats --record` without them, and say so. Then `mep stats` and put its reply-latency and review lines in the report.
-8. **Fridays: the trend.** `mep stats --delta` compares the last 7 days with the 14 before. Report each row that moved more than 20% and say which change in the loop could explain it; `n/a` stays `n/a`. Activity (items closed) only counts next to latency and the felt numbers.
-9. **Weekly, held-out check:** `mep lessons check`. It replays every recorded correction against the lessons and restores the last good set if the current one catches fewer. Say in the report when it reverted.
+8. **Fridays: the trend.** `mep stats --delta` compares the last 7 days with the 14 before. Report each row that moved more than 20% and say which change in the loop could explain it; `n/a` stays `n/a`. Activity (items closed) only counts next to latency and the felt numbers. `pings answered/day` is only a proxy for interruptions (it counts answered pings, not every interruption); report its move and call it a proxy, never "interruptions".
+9. **Routine work and drafts.** Close the day's asks: `mep asks` for what is still open, `mep asks answer ID accepted|edited|rejected` for each draft the user has dealt with (accepted means it went out unchanged; ask when unsure). Tag the day's routine work in the diary, one entry per stretch: `mep log "<what>" --tag routine:<type> --spent 30m` (types like `pr-review`, `reply-draft`, `status-answer`). Then `mep asks report`: put its top 3 routine types by minutes and its acceptance rate per draft kind in the report. Next to the top type, name how easy its result is to check. Propose a type for auto-send only when at least 70% of its answered drafts in the last 7 days were accepted unchanged, with at least 5 of them (`asks report` marks smaller samples `(n<5)`), and the type is low-risk. State it as a proposal: auto-send needs the user's explicit permission, and nothing here enables it.
+10. **Weekly, held-out check:** `mep lessons check`. It replays every recorded correction against the lessons and restores the last good set if the current one catches fewer. Say in the report when it reverted.
 
 ## Report
 
@@ -38,7 +39,8 @@ Open on you
   - <full URL>: <what, since when>
 Mismatches
   - <one line each>
-Waiting on you: <reply median, review median, queue; Fridays the delta>
+Waiting on you: <reply median, review median, queue; Fridays the delta incl. pings/day>
+Routine top 3: <type minutes>; draft acceptance: <kind n/m, %>; auto-send proposal: <type, or none>
 Biggest time sink: <one line, and what to delegate or automate>
 Lessons saved
   - When <situation> -> <action> (not <wrong action>). Evidence: <date, words>

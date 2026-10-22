@@ -8,7 +8,7 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from miseenplace import __version__, lessons, lock, personal, reconcile, stats, today, update
+from miseenplace import __version__, asks, lessons, lock, personal, reconcile, stats, today, update
 from miseenplace.assets import skills_dir
 from miseenplace.chat import Message, Target
 from miseenplace.config import CONFIG_NAME, load_config, resolve_root
@@ -247,6 +247,7 @@ def add_personal_parsers(
     for p in (sl, st):
         p.add_argument("--no-sync", action="store_true")
     add_lessons_parser(sub)
+    add_asks_parsers(sub)
 
 
 def rating(text: str) -> int:
@@ -281,6 +282,32 @@ def add_lessons_parser(sub: "argparse._SubParsersAction[argparse.ArgumentParser]
     ca.add_argument("--fine", required=True)
     ck = act.add_parser("check", help="replay corrections; revert the lessons if they got worse")
     for p in (ad, vo, ca, ck):
+        p.add_argument("--no-sync", action="store_true")
+
+
+def add_asks_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    ak = sub.add_parser(
+        "ask", help="queue a decision for the next digest, or set the where-you-were note"
+    )
+    ak.add_argument("decision", nargs="?", help="the decision, as a question")
+    ak.add_argument("--recommend", help="the answer the assistant recommends")
+    ak.add_argument("--default", help="what happens if there is no answer")
+    ak.add_argument("--by", help="deadline for the default, HH:MM")
+    ak.add_argument("--confidence", choices=asks.CONFIDENCE)
+    ak.add_argument("--kind", default="", help="draft type, to track how often drafts go out as is")
+    flag = ak.add_mutually_exclusive_group()
+    flag.add_argument("--blocks-someone", dest="flag", action="store_const", const="blocks")
+    flag.add_argument("--destructive", dest="flag", action="store_const", const="destructive")
+    ak.add_argument("--where", help="note shown last in the digest: where you were")
+    aq = sub.add_parser("asks", help="the ranked digest of queued decisions; answer one; report")
+    aq.add_argument("--width", type=positive, default=160)
+    act = aq.add_subparsers(dest="asks_cmd", metavar="action")
+    an = act.add_parser("answer", help="close an ask: accepted, edited or rejected")
+    an.add_argument("id", type=int)
+    an.add_argument("outcome", choices=asks.OUTCOMES)
+    rp = act.add_parser("report", help="top routine types by minutes; draft acceptance by kind")
+    rp.add_argument("--days", type=positive, default=7)
+    for p in (ak, an):
         p.add_argument("--no-sync", action="store_true")
 
 
@@ -654,10 +681,42 @@ def change_lessons(st: Storage, a: argparse.Namespace) -> None:
         print(lessons.check(st))
 
 
+def run_ask(store: Store, a: argparse.Namespace) -> None:
+    if a.where is not None:
+        if a.decision is not None:
+            raise MiseError("--where sets the note; give it without a decision")
+        with lock.exclusive(store.root):
+            asks.set_where(store.storage, a.where)
+        print("where noted")
+    else:
+        if not (a.decision and a.recommend and a.default and a.confidence):
+            raise MiseError("an ask needs a decision, --recommend, --default and --confidence")
+        with lock.exclusive(store.root):
+            new = asks.add_ask(
+                store.storage, a.decision, a.recommend, a.default, a.confidence,
+                a.by or "", a.flag or "", a.kind,
+            )  # fmt: skip
+        print(f"A{new.id}")
+    if not a.no_sync:
+        store.sync("ask")
+
+
+def run_asks(store: Store, a: argparse.Namespace) -> None:
+    if a.asks_cmd == "answer":
+        with lock.exclusive(store.root):
+            print(asks.answer(store.storage, a.id, a.outcome))
+        if not a.no_sync:
+            store.sync("asks answer")
+    elif a.asks_cmd == "report":
+        print(asks.report(store.storage, store.read_log(), a.days))
+    else:
+        print(asks.render(store.storage, a.width))
+
+
 # ---- entry --------------------------------------------------------------------
 
 
-READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats")
+READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats", "asks")
 NO_AUTO_UPDATE = ("send", "update", "skills")
 
 
@@ -728,6 +787,10 @@ def run(a: argparse.Namespace) -> None:
         run_style(store, a)
     elif a.cmd == "lessons":
         run_lessons(store, a)
+    elif a.cmd == "ask":
+        run_ask(store, a)
+    elif a.cmd == "asks":
+        run_asks(store, a)
     else:
         run_journal(store, a)
 

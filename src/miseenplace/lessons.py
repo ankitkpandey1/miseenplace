@@ -13,14 +13,12 @@ current set passes fewer than the last good set did, the last good set is restor
 
 import json
 import re
-from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import TypeVar
 
+from miseenplace.jsonl import parsed, rows
 from miseenplace.model import MiseError
 from miseenplace.storage.base import Storage
 
-T = TypeVar("T")
 LESSONS = "lessons.jsonl"
 CASES = "corrections.jsonl"
 GOOD = "lessons.good.jsonl"
@@ -83,18 +81,7 @@ class Case:
 
 def read_lessons(storage: Storage, name: str = LESSONS) -> list[Lesson]:
     text = storage.read_file(name) or ""
-    return [_parsed(name, n, Lesson.from_json, line) for n, line in _rows(text)]
-
-
-def _rows(text: str) -> list[tuple[int, str]]:
-    return [(n, line) for n, line in enumerate(text.splitlines(), 1) if line.strip()]
-
-
-def _parsed(name: str, number: int, parse: Callable[[str], T], line: str) -> T:
-    try:
-        return parse(line)
-    except (ValueError, KeyError, TypeError, AttributeError):
-        raise MiseError(f"{name} line {number} is not a valid entry; fix or delete it") from None
+    return [parsed(name, n, Lesson.from_json, line) for n, line in rows(text)]
 
 
 def write_lessons(storage: Storage, lessons: list[Lesson], name: str = LESSONS) -> None:
@@ -103,7 +90,7 @@ def write_lessons(storage: Storage, lessons: list[Lesson], name: str = LESSONS) 
 
 def read_cases(storage: Storage) -> list[Case]:
     text = storage.read_file(CASES) or ""
-    return [_parsed(CASES, n, Case.from_json, line) for n, line in _rows(text)]
+    return [parsed(CASES, n, Case.from_json, line) for n, line in rows(text)]
 
 
 def add_case(storage: Storage, wrong: str, fine: str) -> None:

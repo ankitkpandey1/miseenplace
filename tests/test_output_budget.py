@@ -113,3 +113,21 @@ def test_stats_delta_fits_the_budget(tmp_path: Path) -> None:
     out = stats_day(tmp_path, "--delta")
     assert 0 < len(out) <= DELTA_BUDGET
     assert all(len(line) <= 90 for line in out.splitlines())
+
+
+ASKS_BUDGET = 1800  # chars (~2 minutes of reading) for `asks`, however many are queued
+
+
+def test_asks_fits_the_two_minute_budget(tmp_path: Path) -> None:
+    for n in range(12):
+        run_cli(
+            tmp_path, "ask", f"Decision number {n} about a long topic " * 5,
+            "--recommend", "do the sensible thing " * 4, "--default", "hold " * 8,
+            "--confidence", "read", "--by", "17:00", "--no-sync",
+        )  # fmt: skip
+    run_cli(tmp_path, "ask", "--where", "reviewing the date-format PR " * 6, "--no-sync")
+    out = run_cli(tmp_path, "asks", "--width", "400").out
+    lines = out.splitlines()
+    assert 0 < sum(len(x) for x in lines[1:-2]) <= ASKS_BUDGET  # the asks; header, "+N", note aside
+    assert lines[0].startswith("12 decisions") and lines[-2].startswith("+")
+    assert all(len(line) <= 400 for line in lines)
