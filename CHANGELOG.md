@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `mep stats [--days N] [--delta] [--record [--focus 1-5] [--stress 1-5]]`: how long people wait on you. Reply latency (median, p90) from mentions and DMs to your reply, review turnaround and review queue via `gh`, items closed per day, pings answered per day, focus and stress from one CSV row a day (`stats.csv`; `--record` replaces that day's row). Missing data is `n/a`, never estimated; no `gh` means those rows are skipped with one stderr note. `--delta` compares the last 7 days with the 14 before. The `eod-review` skill records the day and shows the delta on Fridays.
 - `eod-review` skill (bundled): closes the day with `today` and `reconcile`, learns only from real corrections, never messages anyone. Cron example in `docs/quickstart.md`.
 - `mep lessons list|add|vote|case|check`: lessons as `when -> do, not <wrong>` with evidence and votes (2 at the start, 0 deletes), plus a weekly held-out replay of recorded corrections that restores the last good lesson set if the new one catches fewer. One line per lesson, `--width` caps it.
 

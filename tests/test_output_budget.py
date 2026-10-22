@@ -90,3 +90,26 @@ def test_lessons_list_fits_the_budget(tmp_path: Path) -> None:
     assert 0 < len(out) <= LESSONS_BUDGET
     assert out.count("\n") == 3 and "evidence" not in out
     assert all(len(line) <= 120 for line in out.splitlines())
+
+
+def stats_day(root: Path, *args: str) -> str:
+    seed(root)
+    DemoSource(root).append("DM: Rowan Hale", "Jordan Rivers", "on it", mine=True)
+    run_cli(root, "stats", "--record", "--focus", "4", "--stress", "2", env={"PATH": ""})
+    return run_cli(root, "--source", "demo", "stats", *args, env={"PATH": ""}).out
+
+
+STATS_BUDGET = 250  # chars for `stats` on the demo day (209 measured)
+DELTA_BUDGET = 335  # chars for `stats --delta` (277 measured, about 20% headroom)
+
+
+def test_stats_fits_the_budget(tmp_path: Path) -> None:
+    out = stats_day(tmp_path)
+    assert 0 < len(out) <= STATS_BUDGET
+    assert all(len(line) <= 80 for line in out.splitlines())
+
+
+def test_stats_delta_fits_the_budget(tmp_path: Path) -> None:
+    out = stats_day(tmp_path, "--delta")
+    assert 0 < len(out) <= DELTA_BUDGET
+    assert all(len(line) <= 90 for line in out.splitlines())

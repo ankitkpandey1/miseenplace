@@ -8,9 +8,9 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from miseenplace import __version__, lessons, lock, personal, reconcile, today, update
+from miseenplace import __version__, lessons, lock, personal, reconcile, stats, today, update
 from miseenplace.assets import skills_dir
-from miseenplace.chat import Target
+from miseenplace.chat import Message, Target
 from miseenplace.config import CONFIG_NAME, load_config, resolve_root
 from miseenplace.consent import mark_draft, pending_drafts
 from miseenplace.inbox import (
@@ -153,6 +153,13 @@ def add_journal_parsers(
     rc.add_argument("--apply", action="store_true", help="make the changes (default: print only)")
     rc.add_argument("--sync", action="store_true", help="with --apply: run sync afterwards")
     rc.add_argument("--by", help="actor to attribute the writes to")
+    st = sub.add_parser("stats", help="how long people wait on you: latency, reviews, the trend")
+    st.add_argument("--days", type=positive, help="window in days (default 7)")
+    st.add_argument("--delta", action="store_true", help="last 7 days against the previous 14")
+    st.add_argument("--record", action="store_true", help="write today's row of stats.csv")
+    st.add_argument("--focus", type=rating, help="with --record: how focused the day was, 1-5")
+    st.add_argument("--stress", type=rating, help="with --record: backlog stress, 1-5")
+    st.add_argument("--no-sync", action="store_true", help="with --record: do not sync")
     sub.add_parser("sync", help="pull, render Action Items.md, publish (storage backend decides)")
     su = sub.add_parser("standup", help="Did / Next / Waiting on")
     su.add_argument("--since", default="yesterday", help="yesterday, today, -Nd or YYYY-MM-DD")
@@ -240,6 +247,12 @@ def add_personal_parsers(
     for p in (sl, st):
         p.add_argument("--no-sync", action="store_true")
     add_lessons_parser(sub)
+
+
+def rating(text: str) -> int:
+    if text not in ("1", "2", "3", "4", "5"):
+        raise argparse.ArgumentTypeError(f"must be 1 to 5, got {text!r}")
+    return int(text)
 
 
 def positive(text: str) -> int:
@@ -416,6 +429,43 @@ def run_reconcile(store: Store, a: argparse.Namespace) -> None:
             store.sync("reconcile")
     else:
         print(reconcile.report(changes, False))
+
+
+def run_stats(store: Store, a: argparse.Namespace) -> None:
+    if not a.record and (a.focus or a.stress):
+        raise MiseError("--focus and --stress go with --record")
+    if a.record and a.delta:
+        raise MiseError("--record and --delta do not go together")
+    if a.delta and a.days:
+        raise MiseError("--delta always compares the last 7 days with the 14 before; drop --days")
+    if a.record:
+        queue, notes = None, []
+        try:
+            queue = stats.gh_queue()
+        except MiseError as e:
+            notes.append(str(e))
+        with lock.exclusive(store.root):
+            today = time.strftime("%Y-%m-%d")
+            row = stats.record(store.storage, today, (a.focus, a.stress), queue, notes)
+        for note in notes:
+            print(f"miseenplace: {note}", file=sys.stderr)
+        print(f"recorded {row}")
+        if not a.no_sync:
+            store.sync("stats")
+        return
+
+    def digest(days: float) -> list[Message]:
+        src = open_source(source_name(a), store.root, store.config)
+        if not isinstance(src, Digestible):
+            raise MiseError(f"source {src.name!r} does not offer a digest")
+        return src.digest(days, include_noise=True)
+
+    days = a.days or 7
+    window = stats.DELTA_RECENT + stats.DELTA_BEFORE if a.delta else days
+    data, notes = stats.collect(store.read_log(), store.storage, digest, window)
+    for note in notes:
+        print(f"miseenplace: {note}", file=sys.stderr)
+    print(stats.report(data, days, a.delta, time.time()))
 
 
 def run_new(src: Source, a: argparse.Namespace) -> None:
@@ -607,7 +657,7 @@ def change_lessons(st: Storage, a: argparse.Namespace) -> None:
 # ---- entry --------------------------------------------------------------------
 
 
-READ_CMDS = ("list", "top", "brief", "standup", "reconcile")
+READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats")
 NO_AUTO_UPDATE = ("send", "update", "skills")
 
 
@@ -668,6 +718,8 @@ def run(a: argparse.Namespace) -> None:
         run_source_cmd(store, a)
     elif a.cmd == "reconcile":
         run_reconcile(store, a)
+    elif a.cmd == "stats":
+        run_stats(store, a)
     elif a.cmd == "note-request":
         run_note_request(store, a)
     elif a.cmd == "requests":

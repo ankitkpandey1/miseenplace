@@ -11,7 +11,7 @@ Goal: the user's productivity. Fewer people waiting on them, fewer interruptions
 
 - Message anyone: no chat post, mail or PR comment; no `mep send`.
 - Print credentials. Name keys only.
-- Change anything except the journal and the lesson store (`mep lessons`).
+- Change anything except the journal, the lesson store (`mep lessons`) and the daily stats row (`mep stats --record`).
 
 ## Steps
 
@@ -24,7 +24,9 @@ Goal: the user's productivity. Fewer people waiting on them, fewer interruptions
    - Record the correction itself for the replay: `mep lessons case --wrong "<what was done>" --fine "<what was wanted>"`.
 5. **Escalate repeats.** A lesson that recurs becomes an automatic check (a warning in a draft step, a hook, a gate). Propose the exact change in the report and build it only when the user agrees. Keep it only if it would have caught the original mistake: add its regex as the lesson's `--pattern` and the case above proves it.
 6. **Name the biggest time sink** of the day and the next thing to delegate, automate or batch.
-7. **Weekly, held-out check:** `mep lessons check`. It replays every recorded correction against the lessons and restores the last good set if the current one catches fewer. Say in the report when it reverted.
+7. **Record the day.** Ask the user for two numbers, 1-5: how focused the day was and how stressful the backlog is. One question, never infer them. Then `mep stats --record --focus N --stress N`; rerunning replaces today's row. No answer: `mep stats --record` without them, and say so. Then `mep stats` and put its reply-latency and review lines in the report.
+8. **Fridays: the trend.** `mep stats --delta` compares the last 7 days with the 14 before. Report each row that moved more than 20% and say which change in the loop could explain it; `n/a` stays `n/a`. Activity (items closed) only counts next to latency and the felt numbers.
+9. **Weekly, held-out check:** `mep lessons check`. It replays every recorded correction against the lessons and restores the last good set if the current one catches fewer. Say in the report when it reverted.
 
 ## Report
 
@@ -36,6 +38,7 @@ Open on you
   - <full URL>: <what, since when>
 Mismatches
   - <one line each>
+Waiting on you: <reply median, review median, queue; Fridays the delta>
 Biggest time sink: <one line, and what to delegate or automate>
 Lessons saved
   - When <situation> -> <action> (not <wrong action>). Evidence: <date, words>
