@@ -13,11 +13,11 @@ import pytest
 from tests.conftest import REPO
 
 SKILLS = sorted(p.parent for p in (REPO / "skills").glob("*/SKILL.md"))
-EXPECTED_SKILLS = {"journal", "inbox-triage", "inbox-watch", "learn-style", "setup"}
+EXPECTED_SKILLS = {"journal", "inbox-triage", "inbox-watch", "learn-style", "setup", "eod-review"}
 FRONT = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 
 
-def test_all_five_skills_exist() -> None:
+def test_all_skills_exist() -> None:
     assert {p.name for p in SKILLS} == EXPECTED_SKILLS
 
 

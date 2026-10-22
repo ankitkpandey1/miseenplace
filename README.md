@@ -127,7 +127,7 @@ Zulip and a demo source ship today. A new one takes about 30 minutes: [writing a
 
 Alpha. The commands and file formats can still change between 0.x releases; the changelog says when.
 
-- Ships today: Zulip and the demo source, local and git storage, five skills.
+- Ships today: Zulip and the demo source, local and git storage, six skills.
 - Wanted: Slack, GitHub notifications and email as sources. Start with [writing a source](docs/writing-a-source.md) and [CONTRIBUTING.md](CONTRIBUTING.md), and open an issue with the `new-source` template first if you want feedback on the design.
 
 ## Updates
@@ -142,7 +142,7 @@ Alpha. The commands and file formats can still change between 0.x releases; the 
 
 ```bash
 uv tool uninstall miseenplace-cli       # or: pipx uninstall miseenplace-cli
-rm -r ~/.claude/skills/{setup,journal,inbox-triage,inbox-watch,learn-style}   # skills you copied
+rm -r ~/.claude/skills/{setup,journal,inbox-triage,inbox-watch,learn-style,eod-review}   # skills you copied
 ```
 
 Your data root (`$MISEENPLACE_DIR`, else `~/.local/share/miseenplace`) holds your journal, drafts and style file. It is yours: keep it, or delete it. Uninstalling never touches it. The update state lives in `~/.cache/miseenplace` and is safe to delete.

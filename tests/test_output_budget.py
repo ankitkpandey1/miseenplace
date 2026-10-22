@@ -74,3 +74,19 @@ def test_demo_reconcile_fits_the_budget(tmp_path: Path) -> None:
     out = reconcile_day(tmp_path)
     assert 0 < len(out) <= RECONCILE_BUDGET
     assert all(len(line) <= 90 for line in out.splitlines())
+
+
+LESSONS_BUDGET = 330  # chars for `lessons list` with three lessons (about 250 measured)
+
+
+def test_lessons_list_fits_the_budget(tmp_path: Path) -> None:
+    for n in range(3):
+        run_cli(
+            tmp_path, "lessons", "add", "--when", f"writing chat message {n}",
+            "--do", "link PRs as full URLs", "--not", "a bare #42",
+            "--evidence", "a long quote of the correction " * 20, "--no-sync",
+        )  # fmt: skip
+    out = run_cli(tmp_path, "lessons", "list").out
+    assert 0 < len(out) <= LESSONS_BUDGET
+    assert out.count("\n") == 3 and "evidence" not in out
+    assert all(len(line) <= 120 for line in out.splitlines())

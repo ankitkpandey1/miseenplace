@@ -79,6 +79,15 @@ The first `mep inbox` on a new cursor sets a baseline and prints nothing. Newer 
 
 `mep watch` blocks until something needs you, prints it and exits. See the `inbox-watch` skill, or schedule `mep watch --once` with cron, systemd or launchd (recipes in `skills/inbox-watch/references/`).
 
+### End-of-day review
+
+The `eod-review` skill closes the day and saves lessons from your corrections. Schedule it with cron (more in `skills/eod-review/references/cron.md`):
+
+```cron
+30 21 * * 1-5 MISEENPLACE_DIR=$HOME/work-journal claude -p "Run the eod-review skill" >> $HOME/work-journal/eod.log 2>&1
+0 10 * * 0 MISEENPLACE_DIR=$HOME/work-journal mep lessons check >> $HOME/work-journal/eod.log 2>&1
+```
+
 ## 6. Sync across machines
 
 Add a private git remote with the git storage backend: [Concepts](concepts.md#storage).

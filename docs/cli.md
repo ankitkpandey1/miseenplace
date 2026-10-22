@@ -52,6 +52,20 @@ Exit codes: 0 ok, 1 usage or journal error, 2 source error (network, auth). Erro
 | `requests [-n N]` | read them back |
 | `style show` / `style learn [--days N]` / `style sample` / `style set -` | style file and sent-message corpus |
 
+## Lessons
+
+Lessons from real corrections, kept in `lessons.jsonl` in the data root. One line each: `L3 v2 when <situation> -> do <action>, not <wrong action>`. A new lesson starts at 2 votes, a vote up or down moves it by one, at 0 it is deleted. `list` prints `0 lessons` when empty.
+
+| Command | Purpose |
+|---|---|
+| `lessons list [--full] [--width W]` | one line per lesson, cut at `--width` (default 120); `--full` adds the evidence |
+| `lessons add --when T --do A --not W --evidence E [--pattern RE]` | save a lesson; `--pattern` is a regex that matches the wrong action, which makes the lesson replayable |
+| `lessons vote ID up\|down` | re-confirm or contradict; prints `L3 v3` or `L3 deleted` |
+| `lessons case --wrong TEXT --fine TEXT` | record a past correction in `corrections.jsonl` |
+| `lessons check` | replay every correction: it passes when some lesson pattern matches the `wrong` text and none matches the `fine` text. Compares with the last good set (`lessons.good.jsonl`): fewer passes restores that set (`reverted: 0/1 < 1/1; removed L2; changed L1`, naming each lesson that was removed, brought back or changed by votes), otherwise the current set becomes the good one (`ok: 4/5 corrections caught, 1 lessons unchecked`) |
+
+Writes take `--no-sync` and the data-root lock, so a scheduled `check` never overlaps an `add`. The first `add` or `vote` saves the current set as the baseline. A `--pattern` that matches the empty string is refused. A value starting with a dash needs `=`: `--not=-x`. A garbled line stops with its file and line number. Lessons without a pattern are never replayed; `check` counts them as unchecked.
+
 ## Setup
 
 `init` creates the data root and `config.toml`; `demo` runs the guided tour.

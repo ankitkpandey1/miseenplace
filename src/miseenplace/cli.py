@@ -8,7 +8,7 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from miseenplace import __version__, personal, reconcile, today, update
+from miseenplace import __version__, lessons, lock, personal, reconcile, today, update
 from miseenplace.assets import skills_dir
 from miseenplace.chat import Target
 from miseenplace.config import CONFIG_NAME, load_config, resolve_root
@@ -36,7 +36,7 @@ from miseenplace.model import (
 from miseenplace.render import brief, diary_line, format_message, line, standup
 from miseenplace.sources import open_source
 from miseenplace.sources.base import Digestible, Lookup, Source, SourceError
-from miseenplace.storage.base import StorageError
+from miseenplace.storage.base import Storage, StorageError
 from miseenplace.store import Store
 from miseenplace.tour import tour
 from miseenplace.watch import watch
@@ -238,6 +238,36 @@ def add_personal_parsers(
     st = ss.add_parser("set", help="write the style file from text (use - for stdin)")
     st.add_argument("text")
     for p in (sl, st):
+        p.add_argument("--no-sync", action="store_true")
+    add_lessons_parser(sub)
+
+
+def positive(text: str) -> int:
+    if not text.isdigit() or int(text) < 1:
+        raise argparse.ArgumentTypeError(f"must be a whole number of at least 1, got {text!r}")
+    return int(text)
+
+
+def add_lessons_parser(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    ls = sub.add_parser("lessons", help="lessons from corrections: list, add, vote, case, check")
+    act = ls.add_subparsers(dest="lessons_cmd", required=True, metavar="action")
+    li = act.add_parser("list", help="one line per lesson")
+    li.add_argument("--full", action="store_true", help="add the evidence")
+    li.add_argument("--width", type=positive, default=120)
+    ad = act.add_parser("add", help="save a lesson (starts at 2 votes)")
+    ad.add_argument("--when", required=True)
+    ad.add_argument("--do", required=True)
+    ad.add_argument("--not", dest="not_", required=True)
+    ad.add_argument("--evidence", required=True)
+    ad.add_argument("--pattern", default="", help="regex that matches the wrong action")
+    vo = act.add_parser("vote", help="re-confirm (up) or contradict (down); 0 deletes")
+    vo.add_argument("id", type=int)
+    vo.add_argument("direction", choices=("up", "down"))
+    ca = act.add_parser("case", help="record a past correction for the weekly replay")
+    ca.add_argument("--wrong", required=True)
+    ca.add_argument("--fine", required=True)
+    ck = act.add_parser("check", help="replay corrections; revert the lessons if they got worse")
+    for p in (ad, vo, ca, ck):
         p.add_argument("--no-sync", action="store_true")
 
 
@@ -549,6 +579,31 @@ def run_style(store: Store, a: argparse.Namespace) -> None:
             store.sync("style set")
 
 
+def run_lessons(store: Store, a: argparse.Namespace) -> None:
+    if a.lessons_cmd == "list":
+        found = lessons.read_lessons(store.storage)
+        print("\n".join(x.line(a.width, a.full) for x in found) or "0 lessons")
+        return
+    with lock.exclusive(store.root):  # a cron `check` never overlaps an add or a vote
+        change_lessons(store.storage, a)
+    if not a.no_sync:
+        store.sync(f"lessons {a.lessons_cmd}")
+
+
+def change_lessons(st: Storage, a: argparse.Namespace) -> None:
+    cmd = a.lessons_cmd
+    if cmd == "add":
+        new = lessons.add_lesson(st, a.when, a.do, a.not_, a.evidence, a.pattern)
+        print(f"L{new.id} v{new.votes}")
+    elif cmd == "vote":
+        print(lessons.vote(st, a.id, 1 if a.direction == "up" else -1))
+    elif cmd == "case":
+        lessons.add_case(st, a.wrong, a.fine)
+        print(f"{len(lessons.read_cases(st))} corrections")
+    else:
+        print(lessons.check(st))
+
+
 # ---- entry --------------------------------------------------------------------
 
 
@@ -619,6 +674,8 @@ def run(a: argparse.Namespace) -> None:
         run_requests(store, a)
     elif a.cmd == "style":
         run_style(store, a)
+    elif a.cmd == "lessons":
+        run_lessons(store, a)
     else:
         run_journal(store, a)
 
