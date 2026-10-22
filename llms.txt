@@ -1,0 +1,20 @@
+# miseenplace
+
+> Every ask, in its place. An agent-native CLI (`mep`) and Agent Skills that turn the asks, promises and nudges in your chat into a triaged inbox and an audit-logged action list. Python stdlib only, Apache-2.0.
+
+## Docs
+
+- [Quickstart](https://ankitkpandey1.github.io/miseenplace/quickstart/): install, demo, connect a source
+- [Concepts](https://ankitkpandey1.github.io/miseenplace/concepts/): journal, sources, cursors, inbox queue, consent gate, storage
+- [CLI reference](https://ankitkpandey1.github.io/miseenplace/cli/): every command
+- [Data model](https://ankitkpandey1.github.io/miseenplace/data-model/): files and formats
+- [Sources](https://ankitkpandey1.github.io/miseenplace/sources/): the source contract, Zulip, demo
+- [Writing a source](https://ankitkpandey1.github.io/miseenplace/writing-a-source/): 30-minute guide
+- [Writing a storage backend](https://ankitkpandey1.github.io/miseenplace/writing-a-storage-backend/): 30-minute guide
+- [Agent cost](https://ankitkpandey1.github.io/miseenplace/agent-cost/): token efficiency design
+- [Security](https://ankitkpandey1.github.io/miseenplace/security/): data, consent gate limits
+
+## Optional
+
+- [Full text of the docs](https://ankitkpandey1.github.io/miseenplace/llms-full.txt)
+- [Source repository](https://github.com/ankitkpandey1/miseenplace)

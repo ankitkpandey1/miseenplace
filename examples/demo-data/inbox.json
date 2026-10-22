@@ -1,0 +1,18 @@
+{
+  "me": "Jordan Rivers",
+  "people": ["Alex Chen", "Rowan Hale", "Sam Okafor", "Jordan Rivers"],
+  "messages": [
+    {"id": 1, "where": "#platform > release 2.4", "sender": "Alex Chen", "minutes_ago": 2900,
+     "text": "Release branch is cut. Who owns the changelog?", "mentioned": false, "mine": false},
+    {"id": 2, "where": "#platform > release 2.4", "sender": "Jordan Rivers", "minutes_ago": 2880,
+     "text": "I can take the changelog, will send it Thursday.", "mentioned": false, "mine": true},
+    {"id": 3, "where": "DM: Rowan Hale", "sender": "Rowan Hale", "minutes_ago": 600,
+     "text": "Could you review the parser PR when you get a chance? It blocks the beta.", "mentioned": false, "mine": false},
+    {"id": 4, "where": "#platform > incident follow-ups", "sender": "Sam Okafor", "minutes_ago": 240,
+     "text": "@**Jordan Rivers** can you write up the retro for yesterday's outage by Friday?", "mentioned": true, "mine": false},
+    {"id": 5, "where": "#platform > release 2.4", "sender": "Alex Chen", "minutes_ago": 55,
+     "text": "Changelog still pending, ETA?", "mentioned": false, "mine": false},
+    {"id": 6, "where": "DM: Rowan Hale", "sender": "Rowan Hale", "minutes_ago": 20,
+     "text": "No rush on the review, but I will ping Sam if I do not hear back today.", "mentioned": false, "mine": false}
+  ]
+}

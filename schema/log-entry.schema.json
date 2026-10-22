@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miseenplace/log-entry.schema.json",
+  "title": "Audit log entry",
+  "description": "One line of data/audit_log.jsonl. Append-only write-ahead log; replaying it in seq order rebuilds data/items.json. `by` must be an actor listed in miseenplace.toml (default: me, agent).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seq", "ts", "op", "id", "by", "changes"],
+  "properties": {
+    "seq": { "type": "integer", "minimum": 1, "description": "Strictly increasing by 1, no gaps." },
+    "ts": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$" },
+    "op": { "enum": ["add", "set", "done", "drop", "log"] },
+    "id": { "type": "integer", "minimum": 0, "description": "Item id; 0 for a diary entry (op log)." },
+    "by": { "type": "string", "minLength": 1 },
+    "changes": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "op": { "const": "add" } } },
+      "then": {
+        "properties": {
+          "id": { "minimum": 1 },
+          "changes": { "oneOf": [{ "$ref": "item.schema.json" }, { "$ref": "#/$defs/legacyItem" }] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "op": { "const": "log" } } },
+      "then": { "properties": { "id": { "const": 0 }, "changes": { "$ref": "#/$defs/diary" } } }
+    },
+    {
+      "if": { "properties": { "op": { "enum": ["set", "done", "drop"] } } },
+      "then": {
+        "properties": {
+          "id": { "minimum": 1 },
+          "changes": {
+            "description": "{field: [old, new]}; replay fails if old does not match the current value.",
+            "additionalProperties": { "type": "array", "minItems": 2, "maxItems": 2 }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "diary": {
+      "description": "A diary entry not tied to any item.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "topic", "tags", "spent", "refs"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "topic": { "type": ["string", "null"], "minLength": 1 },
+        "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "spent": { "type": "integer", "minimum": 0, "description": "Minutes." },
+        "refs": { "type": "array", "items": { "type": "string", "pattern": "^https?://" } }
+      }
+    },
+    "legacyItem": {
+      "description": "An `add` written before the work fields existed (read-only: replay fills defaults; new writes use item.schema.json).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "kind", "state", "eta", "who", "refs", "notes", "created", "updated"],
+      "properties": {
+        "id": { "$ref": "item.schema.json#/properties/id" },
+        "title": { "$ref": "item.schema.json#/properties/title" },
+        "kind": { "$ref": "item.schema.json#/properties/kind" },
+        "state": { "$ref": "item.schema.json#/properties/state" },
+        "eta": { "$ref": "item.schema.json#/properties/eta" },
+        "who": { "$ref": "item.schema.json#/properties/who" },
+        "refs": { "$ref": "item.schema.json#/properties/refs" },
+        "notes": { "$ref": "item.schema.json#/properties/notes" },
+        "created": { "$ref": "item.schema.json#/properties/created" },
+        "updated": { "$ref": "item.schema.json#/properties/updated" }
+      }
+    }
+  }
+}

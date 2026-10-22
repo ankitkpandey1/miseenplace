@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "miseenplace"
+version = "0.1.0"
+description = "Every ask, in its place. A chef's mise en place for your workday: the asks, promises and nudges from chat, laid out before the day starts. Agent-native."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "miseenplace contributors" }]
+keywords = [
+    "ai-agents", "agent-skills", "claude-code", "codex", "gemini-cli", "cursor",
+    "productivity", "todo", "task-manager", "standup", "zulip", "cli", "journal",
+    "inbox-zero", "work-log", "action-items", "audit-log",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Scheduling",
+    "Topic :: Communications :: Chat",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://ankitkpandey1.github.io/miseenplace/"
+Documentation = "https://ankitkpandey1.github.io/miseenplace/"
+Repository = "https://github.com/ankitkpandey1/miseenplace"
+Issues = "https://github.com/ankitkpandey1/miseenplace/issues"
+Changelog = "https://github.com/ankitkpandey1/miseenplace/blob/main/CHANGELOG.md"
+
+[project.scripts]
+miseenplace = "miseenplace.cli:main"
+mep = "miseenplace.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "mypy>=1.13", "ruff>=0.8", "black>=25", "pre-commit>=4"]
+docs = ["mkdocs>=1.6,<2", "mkdocs-material[imaging]>=9.5"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/miseenplace"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"examples/demo-data" = "miseenplace/demo_data"
+"skills" = "miseenplace/skills"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "skills", "examples", "docs", "tests", "scripts", "README.md", "LICENSE", "CHANGELOG.md", "llms.txt"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312", "py313", "py314"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+# Lint only: black formats. Same line length, so the two never fight.
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PT", "RUF", "DTZ"]
+
+[tool.ruff.lint.per-file-ignores]
+# The journal records local wall-clock time on purpose (no timezones in the log).
+"src/miseenplace/model.py" = ["DTZ005", "DTZ011"]
+"src/miseenplace/render.py" = ["DTZ011"]
+"src/miseenplace/personal.py" = ["DTZ005"]
+"src/miseenplace/watch.py" = ["DTZ005"]
+"src/miseenplace/sources/*.py" = ["DTZ006"]
+# Two-part asserts (`code == 1 and "msg" in err`) read better than two lines in a test.
+"tests/*.py" = ["PT018"]
+"tests/*" = ["DTZ005", "DTZ011", "DTZ006"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+files = ["src", "tests", "scripts"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miseenplace/item.schema.json",
+  "title": "Action item",
+  "description": "Current state of one action item: a reference (PR, ticket or message link) with state, ETA and work context. Fields after `updated` were added later; a log entry written before they existed is read with their defaults (null, [], 0).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "title", "kind", "state", "eta", "who", "refs", "notes", "created", "updated",
+    "topic", "context", "next", "blocker", "decisions", "think", "priority", "spent", "tags"
+  ],
+  "properties": {
+    "id": { "type": "integer", "minimum": 1, "description": "Stable, never reused." },
+    "title": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["mine", "waiting", "reminder"] },
+    "state": { "enum": ["todo", "doing", "waiting", "done", "dropped"] },
+    "eta": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "mine: due date; waiting: when to nudge; reminder: when it surfaces."
+    },
+    "who": { "type": ["string", "null"], "description": "Counterparty: who asked, or who is being waited on." },
+    "refs": { "type": "array", "items": { "type": "string", "pattern": "^https?://" } },
+    "notes": { "type": "array", "items": { "type": "string" }, "description": "Append-only." },
+    "created": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$" },
+    "updated": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$" },
+    "topic": { "type": ["string", "null"], "minLength": 1, "description": "Groups items, e.g. a project or workstream." },
+    "context": { "type": ["string", "null"], "minLength": 1, "description": "1-3 lines of background: why it exists, who asked." },
+    "next": { "type": ["string", "null"], "minLength": 1, "description": "Where you left off / the next concrete step." },
+    "blocker": { "type": ["string", "null"], "minLength": 1, "description": "Who or what it is waiting on." },
+    "decisions": {
+      "type": "array",
+      "description": "Append-only.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["what", "why"],
+        "properties": {
+          "what": { "type": "string", "minLength": 1 },
+          "why": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "think": { "type": ["string", "null"], "minLength": 1, "description": "Slug of a longer-form notebook for big work." },
+    "priority": { "enum": ["p0", "p1", "p2", "p3", null], "description": "p0 is highest; null is unprioritised and sorts last." },
+    "spent": { "type": "integer", "minimum": 0, "description": "Minutes, accumulated." },
+    "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

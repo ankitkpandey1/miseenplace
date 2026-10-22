@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="miseenplace: every ask, in its place">
+  <rect width="1280" height="640" fill="#14181f"/>
+  <g fill="#232a35" stroke="#2f3846" stroke-width="2">
+    <rect x="80" y="400" width="340" height="150" rx="14"/>
+    <rect x="470" y="400" width="340" height="150" rx="14"/>
+    <rect x="860" y="400" width="340" height="150" rx="14"/>
+  </g>
+  <g font-family="ui-monospace, Menlo, Consolas, monospace" font-size="24" fill="#c9d4e3">
+    <text x="108" y="450">reply</text><text x="108" y="490" fill="#7e8da3">Changelog ETA?</text>
+    <text x="498" y="450">todo</text><text x="498" y="490" fill="#7e8da3">Review parser PR</text>
+    <text x="888" y="450">waiting</text><text x="888" y="490" fill="#7e8da3">Sam: retro notes</text>
+  </g>
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+    <text x="80" y="200" font-size="104" font-weight="700" fill="#f2f5fa">miseenplace</text>
+    <text x="84" y="270" font-size="44" fill="#e9b44c">Every ask, in its place.</text>
+    <text x="84" y="330" font-size="28" fill="#9fb0c7">An agent-native CLI and skills that lay out your chat's asks before the day starts.</text>
+  </g>
+</svg>

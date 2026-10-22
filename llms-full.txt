@@ -1,0 +1,595 @@
+# miseenplace — full documentation for agents
+
+
+<!-- README.md -->
+
+# miseenplace
+
+**Every ask, in its place.** An agent-native CLI and set of skills that lay out the asks, promises and nudges from your chat before the day starts: a chef's mise en place for your workday, for Claude Code, Codex, Gemini CLI and Cursor.
+
+[![PyPI](https://img.shields.io/pypi/v/miseenplace)](https://pypi.org/project/miseenplace/)
+[![CI](https://github.com/ankitkpandey1/miseenplace/actions/workflows/ci.yml/badge.svg)](https://github.com/ankitkpandey1/miseenplace/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/miseenplace)](https://pypi.org/project/miseenplace/)
+
+## Paste this into your agent
+
+```text
+Install miseenplace with `uv tool install miseenplace`, run `miseenplace skills` to find the
+bundled agent skills, copy them into your skills directory, then run the setup skill and
+follow it. Ask me only for things you cannot find out yourself.
+```
+
+No account? `uvx miseenplace demo` runs a two-minute tour on fictional data.
+
+### Where the skills go
+
+| Tool | Skills directory (user level) | Project level |
+|---|---|---|
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Codex | `~/.agents/skills/` | `.agents/skills/` |
+| Gemini CLI | `~/.gemini/skills/` (alias `~/.agents/skills/`) | `.gemini/skills/` |
+| Cursor | `~/.cursor/skills/` (also reads `~/.agents/skills/`) | `.cursor/skills/` |
+
+Paths are from each tool's documentation at the time of writing; if your version differs, check your tool's docs.
+Copy the bundled skills with the directory for your tool (Claude Code shown):
+
+```bash
+mkdir -p ~/.claude/skills && cp -r "$(mep skills)"/* ~/.claude/skills/
+```
+
+Claude Code can also install it as a plugin, with no copying:
+
+```text
+/plugin marketplace add ankitkpandey1/miseenplace
+/plugin install miseenplace@miseenplace
+```
+
+## Why
+
+Chat is where work is asked for and promised, and it scrolls away. To-do apps start empty and trust you to copy things in. miseenplace reads your chat, keeps only what needs you, and turns it into an audit-logged action list your agent can drive.
+
+- **One line per ask.** `mep inbox` shows `id · who · where · ask · action`, nothing else. Your own earlier answers hide the asks you already handled.
+- **One call per decision.** `mep triage 12 --todo` files the item with link, topic and context filled in.
+- **Agents cannot post free text.** `draft` stores the exact words; `send` takes only a draft id, after you said yes to that text.
+- **Cheap to run.** The CLI does the deterministic work, so a small model can drive it. A tested output budget keeps a ten-message loop near 500 tokens.
+- **Your data, your storage.** Local files, a private git repository, or a backend you write in 30 minutes.
+- **Stdlib only.** No runtime dependencies. Python 3.11 to 3.14.
+
+| | Plain to-do app | miseenplace |
+|---|---|---|
+| Captures asks from chat | you copy them in | reads the chat |
+| Remembers you already answered | no | hides answered asks |
+| History | edits overwrite | append-only audit log, replay-validated |
+| Agent can drive it | via a UI or an API | terse CLI plus short skills |
+| Agent can post for you | n/a | only a stored draft you approved |
+| Where data lives | the vendor | files you own, optionally in git |
+
+## Daily use
+
+```bash
+mep inbox                               # only what needs you
+mep triage 12 --todo --eta fri          # journal it
+mep triage 13 --reply-draft "Thursday"  # stores the text, posts nothing
+mep send d1a2b3c4e                      # after your yes on that exact text
+mep top                                 # what first
+mep standup --since yesterday           # Did / Next / Waiting on
+mep watch                               # block until something needs you
+```
+
+## Skills
+
+`skills/` follows the Agent Skills standard and also installs as a Claude Code plugin (`.claude-plugin/`).
+
+| Skill | Does |
+|---|---|
+| `setup` | install, connect a source, verify |
+| `journal` | keep items and the work diary |
+| `inbox-triage` | inbox into journal items and drafted replies |
+| `inbox-watch` | background watcher; wakes the agent on new asks |
+| `learn-style` | learns how you write so drafts sound like you |
+
+## Storage
+
+```toml
+# config.toml in the data root
+[storage]
+backend = "git"      # local (default) | git | "package.module:ClassName"
+remote = "git@host:me/my-data.git"
+```
+
+The git backend pulls before reads and commits and pushes after writes; a failed push is an error. See [writing a storage backend](docs/writing-a-storage-backend.md).
+
+## Sources
+
+Zulip and a demo source ship today. A new one takes about 30 minutes: [writing a source](docs/writing-a-source.md).
+
+## Your data is personal
+
+The journal, your sent-message archive, your style file and a verbatim log of your requests live in your data root, never in this repository. Read [security](docs/security.md), especially what the consent gate does not guarantee.
+
+## Docs
+
+[Quickstart](docs/quickstart.md) · [Concepts](docs/concepts.md) · [CLI](docs/cli.md) · [Data model](docs/data-model.md) · [Sources](docs/sources.md) · [Agent cost](docs/agent-cost.md) · [Security](docs/security.md) · [Contributing](CONTRIBUTING.md)
+
+Apache-2.0.
+
+
+<!-- docs/index.md -->
+
+---
+description: miseenplace - every ask, in its place. An agent-native CLI and Agent Skills that turn the asks, promises and nudges in your chat into a triaged inbox and an audit-logged action list.
+---
+
+# miseenplace
+
+**Every ask, in its place.** A chef's mise en place for your workday: the asks, promises and nudges from chat, laid out before the day starts. Built for Claude Code, Codex, Gemini CLI and Cursor.
+
+```bash
+uvx miseenplace demo     # two minutes, no account
+```
+
+- [Quickstart](quickstart.md)
+- [Concepts](concepts.md)
+- [CLI reference](cli.md)
+- [Security](security.md)
+- [Source on GitHub](https://github.com/ankitkpandey1/miseenplace)
+
+
+<!-- docs/quickstart.md -->
+
+---
+description: Install miseenplace, try the two-minute demo, connect your chat and triage your first inbox with an AI agent or by hand.
+---
+
+# Quickstart
+
+## 1. Try it without an account
+
+```bash
+uv tool install miseenplace      # or: pipx install miseenplace
+mep demo
+```
+
+`mep demo` runs a guided tour on fictional data in a temporary directory: an inbox with a few asks, triage into journal items, a drafted reply, a refused send of free text, and a stand-up. Nothing leaves your machine.
+
+## 2. Let your agent set it up
+
+Paste this into Claude Code, Codex, Gemini CLI or Cursor:
+
+```text
+Install miseenplace with `uv tool install miseenplace`, run `miseenplace skills` to find the
+bundled agent skills, copy them into your skills directory, then run the setup skill and
+follow it. Ask me only for things you cannot find out yourself.
+```
+
+### Where the skills go
+
+| Tool | Skills directory (user level) | Project level |
+|---|---|---|
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Codex | `~/.agents/skills/` | `.agents/skills/` |
+| Gemini CLI | `~/.gemini/skills/` (alias `~/.agents/skills/`) | `.gemini/skills/` |
+| Cursor | `~/.cursor/skills/` (also reads `~/.agents/skills/`) | `.cursor/skills/` |
+
+Paths are from each tool's documentation at the time of writing; if your version differs, check your tool's docs.
+Copy the bundled skills with the directory for your tool (Claude Code shown):
+
+```bash
+mkdir -p ~/.claude/skills && cp -r "$(mep skills)"/* ~/.claude/skills/
+```
+
+Claude Code can also install it as a plugin, with no copying:
+
+```text
+/plugin marketplace add ankitkpandey1/miseenplace
+/plugin install miseenplace@miseenplace
+```
+
+## 3. Or set it up by hand
+
+```bash
+mep init                    # creates the data root and a config.toml template
+```
+
+Edit `config.toml` in the data root (`$MISEENPLACE_DIR`, default `~/.local/share/miseenplace`):
+
+```toml
+default_source = "zulip"
+
+[sources.zulip]
+noise_streams = ["alerts"]   # skipped unless a message mentions you
+```
+
+Zulip credentials come from `ZULIP_EMAIL`, `ZULIP_API_KEY`, `ZULIP_SITE`, or a zuliprc file. See [Sources](sources.md).
+
+## 4. Daily use
+
+```bash
+mep inbox                     # only what needs you, one line each
+mep triage 12 --todo          # journal it
+mep triage 13 --reply-draft "Thursday"   # stores the text, posts nothing
+mep send d1a2b3c4e            # only after you said yes to that exact text
+mep top                       # what first?
+mep standup --since yesterday
+```
+
+The first `mep inbox` on a new cursor sets a baseline and prints nothing. Newer messages show from then on.
+
+## 5. Keep it running
+
+`mep watch` blocks until something needs you, prints it and exits. See the `inbox-watch` skill, or schedule `mep watch --once` with cron, systemd or launchd (recipes in `skills/inbox-watch/references/`).
+
+## 6. Sync across machines
+
+Add a private git remote with the git storage backend: [Concepts](concepts.md#storage).
+
+
+<!-- docs/concepts.md -->
+
+---
+description: The ideas behind miseenplace - the journal write-ahead log, sources, the inbox queue, cursors, the consent gate and pluggable storage.
+---
+
+# Concepts
+
+miseenplace is a chef's mise en place for the workday: everything asked of you, promised by you or owed to you, laid out before the day starts. Agents drive the CLI; the CLI does the deterministic work.
+
+## The journal
+
+Items are things to do (`mine`), things you wait on (`waiting`) and reminders. Every change is one line appended to an audit log, which is the source of truth. A snapshot (`items.json`) is a cache rebuilt from the log, and `Action Items.md` is a page rendered from it. A write that fails validation writes nothing. See [Data model](data-model.md).
+
+## Sources
+
+A source is a chat service behind a small contract: `new`, `thread`, `draft`, `send`, `users`. Zulip and a file-backed demo ship today. Writing another takes about 30 minutes: [Writing a source](writing-a-source.md).
+
+`new` never returns your own messages. So an agent must re-read the thread before calling anything pending: you may already have answered.
+
+## Cursors
+
+Each consumer (a watcher, an agent session, a cron job) has its own read position, one tiny file per cursor. Consumers never overwrite each other. A new cursor sets a baseline and reports nothing from before it.
+
+## The inbox queue
+
+`mep inbox` ingests new messages into a queue (one file per message), classifies each (`reply`, `todo`, `waiting`, `ignore`) and prints only the actionable ones, one line each. Ingest queues first and classifies after, so a network failure loses nothing. Messages you already answered are hidden. `mep triage` handles one item in one call.
+
+## The consent gate
+
+`draft` stores the exact text and returns a draft id. `send` accepts only a draft id and posts exactly the stored text, once. There is no way to send free text. This is structural, not proof that a human approved: see [Security](security.md) for what it does and does not guarantee.
+
+## Your words are data
+
+Your own sent messages (`corpus/`), the style file learned from them (`style/`) and a verbatim log of what you asked your agent to do (`requests.jsonl`) live in the data root. Summaries drift; verbatim words do not.
+
+## Storage
+
+The log, snapshot and named files go through a `Storage` backend chosen in `config.toml`:
+
+```toml
+[storage]
+backend = "local"   # local (default) | git | "package.module:ClassName"
+```
+
+- `local`: plain files under the data root.
+- `git`: local files in a git repository; pulls before a read, commits and pushes after a write; a failed pull or push is an error, never silent.
+- Your own: [Writing a storage backend](writing-a-storage-backend.md). Backends are also discoverable through the `miseenplace.storage` entry-point group.
+
+## Agent-native
+
+Every command is terse by default and has a machine-readable form. Skills are short, with fixed decision tables, so a small model can drive them. See [Agent cost](agent-cost.md).
+
+## Concurrency and sync
+
+Every write takes an exclusive lock on the data root (`.lock`, POSIX `fcntl`; Windows is untested), pulls first when the storage has a remote, then appends. The snapshot (`data/items.json`) stores a fingerprint of the log entry it was built from and is rebuilt whenever it disagrees with the log. With the git backend, two machines that both wrote are merged by keeping the remote's entries first and re-appending the local unpushed entries after them, renumbered; if git cannot merge, the merge is aborted and the repository is left clean.
+
+
+<!-- docs/cli.md -->
+
+---
+description: Reference for every miseenplace command (mep) - journal, inbox, triage, watch, drafts, style and request log.
+---
+
+# CLI reference
+
+`miseenplace` and `mep` are the same program. Global options go before the command: `--dir PATH`, `--source NAME`, `--version`. Environment: `MISEENPLACE_DIR`, `MISEENPLACE_SOURCE`.
+
+Exit codes: 0 ok, 1 usage or journal error, 2 source error (network, auth). Errors are one line on stderr.
+
+## Journal
+
+| Command | Purpose |
+|---|---|
+| `add TITLE [--kind mine\|waiting\|reminder] [--who] [--eta] [--ref] [--topic] [--context] [--next] [--priority]` | new item |
+| `set ID [--state] [--note] [--spent] [--tag] [--decision]` | change an item |
+| `done ID [--note]` / `drop ID` | close |
+| `log TEXT [--topic] [--spent]` | diary entry |
+| `list [--topic] [--tag] [--sort]` | list items |
+| `top [-n N]` | what first |
+| `brief ID_OR_TOPIC` | full view |
+| `standup [--since yesterday]` | Did / Next / Waiting on |
+| `sync` | pull, render the page, publish (storage decides) |
+
+## Inbox
+
+| Command | Purpose |
+|---|---|
+| `inbox [--cursor NAME] [--json] [--all] [--verbose]` | only actionable items, `id · who · where · ask · action` |
+| `triage ID --todo\|--waiting\|--ignore\|--reply-draft TEXT [--eta] [--topic]` | one call per item; exactly one action |
+| `watch [--cursor NAME] [--interval 300] [--once]` | block until a new actionable item, print, exit 0; `--interval` is at least 10; `--once` exits 0 with empty output when nothing is new; errors go to `state/watch.log` |
+
+## Source
+
+| Command | Purpose |
+|---|---|
+| `new [--cursor NAME] [--init]` | raw new messages, silent if none |
+| `thread --channel C --topic T` or `--dm NAME` | read a thread |
+| `digest [--days N]` | grouped history for humans |
+| `draft TEXT [--channel --topic \| --dm] [--reply-to ID]` | store the exact text; posts nothing |
+| `drafts` | unsent drafts |
+| `send DRAFT_ID [--mark-sent\|--mark-unsent]` | post a stored draft, only an id; the flags record what you found after an unconfirmed send |
+| `users QUERY` | find people |
+
+## Your words
+
+| Command | Purpose |
+|---|---|
+| `note-request TEXT` | append your exact words to `requests.jsonl` |
+| `requests [-n N]` | read them back |
+| `style show` / `style learn [--days N]` / `style sample` / `style set -` | style file and sent-message corpus |
+
+## Setup
+
+`init` creates the data root and `config.toml`; `demo` runs the guided tour; `skills` prints the path of the bundled skills.
+
+
+<!-- docs/data-model.md -->
+
+---
+description: Exact layout of the miseenplace data root - audit log, snapshot, config, inbox queue, cursors, drafts, style, corpus and request log.
+---
+
+# Data model
+
+Everything lives under the data root: `--dir`, else `$MISEENPLACE_DIR`, else `~/.local/share/miseenplace`.
+
+```text
+config.toml                      settings (actors, sources, storage)
+data/audit_log.jsonl             source of truth, append-only, fsynced
+data/items.json                  snapshot cache, rebuilt from the log
+Action Items.md                  rendered page
+style/<source>.md                your writing style (learn-style)
+corpus/<source>/sent.jsonl       your sent messages, deduplicated by message id
+requests.jsonl                   what you asked your agent to do, verbatim
+state/cursors/<source>/<name>    one read position per consumer
+state/inbox/<source>/<id>.json   one queued message per file
+state/drafts/<id>.json           stored drafts (and .sending while claimed)
+state/watch.log                  watcher errors
+```
+
+`state/` and `data/items.json` are per machine or rebuildable and are not committed by the git backend.
+
+## Audit log
+
+One JSON object per line, validated by `schema/log-entry.schema.json`:
+
+```json
+{"seq": 3, "ts": "2026-10-21 09:00", "op": "add", "id": 1, "by": "agent", "changes": {"title": "Review parser PR"}}
+```
+
+Replay checks: sequence numbers have no gaps, `by` is a configured actor, and each `old` value in an update matches the replayed state. A broken log fails loudly instead of rendering a wrong page.
+
+## Items
+
+Validated by `schema/item.schema.json`. Fields: `id`, `title`, `kind` (`mine`, `waiting`, `reminder`), `state`, `eta`, `who`, `refs`, `notes`, `created`, `updated`, plus optional work context: `topic`, `context`, `next`, `blocker`, `think`, `priority` (p0 to p3), `spent`, `tags`, `decisions`.
+
+## Inbox item
+
+`id`, `who`, `where`, `ts`, `text`, `url`, `status` (`new`, `open`, `auto-ignored`, `answered`, `todo`, `waiting`, `ignored`, `drafted`), `action` and `ref` (the journal id or draft id it led to).
+
+## Draft
+
+`id` (`d` plus 8 hex digits), `target`, `text`, `sha256`, `created`. The hash is checked on send; the file is claimed exclusively while sending so delivery happens once. A failed delivery leaves the draft sendable.
+
+## Personal data
+
+Corpus, style and request files are personal. See [Security](security.md).
+
+
+<!-- docs/sources.md -->
+
+---
+description: The source contract for miseenplace and how the Zulip and demo sources are configured.
+---
+
+# Sources
+
+A source implements this Protocol (`miseenplace.sources.base.Source`):
+
+| Method | Meaning |
+|---|---|
+| `new(cursor, init=False)` | messages for me since this consumer's position; excludes my own |
+| `thread(target, limit)` | a conversation, including my messages |
+| `draft(target, text)` | store the exact text, return a draft |
+| `send(draft_id)` | post a stored draft |
+| `users(query)` | find people |
+
+A source may also implement `digest(days, include_noise, only_mine)`; `style learn` needs it.
+
+Because `new` excludes your own messages, anything that reads it must re-read the thread before calling something pending.
+
+## Zulip
+
+Credentials, in order: environment (`ZULIP_EMAIL`, `ZULIP_API_KEY`, `ZULIP_SITE`), then a zuliprc file (`$MISEENPLACE_ZULIP_RC` or `~/.zuliprc`). Use your own personal API key. The key never appears in output or in `repr`.
+
+```toml
+[sources.zulip]
+noise_streams = ["alerts"]       # skipped unless a message mentions you
+noise_topics = ["Build Failure"]
+participation_days = 14          # threads you took part in stay visible
+```
+
+Network failures raise a one-line error ("zulip unreachable; will retry"). The watcher logs and retries them.
+
+## Demo
+
+File-backed JSON under `<root>/demo/`. It is the reference implementation: read `sources/demo.py` first when writing your own.
+
+## Your own
+
+[Writing a source](writing-a-source.md).
+
+
+<!-- docs/writing-a-source.md -->
+
+---
+description: A 30-minute guide to adding a chat or ticket source to miseenplace - the contract, a template, tests and registration.
+---
+
+# Writing a source (30 minutes)
+
+Budget: 5 minutes to read, 15 to implement, 10 to test. A source is a class; no framework.
+
+## 1. Read the reference (5 min)
+
+`src/miseenplace/sources/demo.py` is the smallest complete source. `src/miseenplace/sources/base.py` has the Protocol.
+
+## 2. Copy the template (1 min)
+
+```bash
+cp src/miseenplace/sources/_template.py src/miseenplace/sources/myservice.py
+```
+
+## 3. Implement (15 min)
+
+- `new(cursor, init)`: call `consume(self.cursors, cursor, init, newest, after)`. It sets a baseline for an unknown cursor and advances the position only after you return. Return messages **not sent by the user**.
+- `thread(target)`: the conversation, with `mine=True` on the user's own messages.
+- `draft(target, text)`: `return self.outbox.draft(target, text)`. If the draft quotes something, put the quote in the text now, so the stored text is exactly what is posted.
+- `send(draft_id)`: `return self.outbox.send(draft_id)`, where the Outbox calls your `_deliver(target, text)` once.
+- `users(query)`: return `Person` rows.
+- Map every network or auth failure to `SourceError("... ; will retry")`. Never print a credential.
+- Fill `Message.target` so a reply can be addressed.
+
+## 4. Register (1 min)
+
+Add the class to `REGISTRY` in `sources/__init__.py` and a `from_config(root, settings)` classmethod reading `[sources.myservice]`.
+
+## 5. Test (10 min)
+
+Add your source to `tests/contract/test_source_contract.py`. The contract tests are read-only and skip without credentials (set an environment variable pattern like the Zulip case). No mocks: use a real account or a real local server.
+
+## 6. Ship
+
+Open a PR with the docs line in [Sources](sources.md). Use the `new-source` issue template to discuss first.
+
+
+<!-- docs/writing-a-storage-backend.md -->
+
+---
+description: A 30-minute guide to writing a miseenplace storage backend - the Storage Protocol, a template, loading it by name and passing the contract tests.
+---
+
+# Writing a storage backend (30 minutes)
+
+Storage holds the audit log, the snapshot and named files (page, style, corpus, request log). Per-machine state (cursors, drafts, inbox queue) is not storage and stays on local disk.
+
+## The contract
+
+`miseenplace.storage.base.Storage`:
+
+| Method | Meaning |
+|---|---|
+| `append(entry)` | add one log entry, durably |
+| `read_entries(after=0)` | entries with `seq > after`, in order |
+| `load_snapshot()` / `save_snapshot(seq, items)` | the cache; `None` until saved |
+| `read_file(name)` / `write_file(name, text)` / `append_file(name, text)` | named text files; `read_file` returns `None` if missing |
+| `refresh()` | called before reads; pull remote changes |
+| `sync(message)` | called after writes; publish them |
+
+Reject unsafe names with `check_name(name)`: it raises `StorageError` for `..`, absolute paths and empty names. Raise `StorageError` for any failure. Never swallow one.
+
+## Steps
+
+1. Copy `src/miseenplace/storage/_template.py`; implement the methods (15 min). `tests/memory_storage.py` is a complete example in 40 lines.
+2. Constructor signature: `(root: Path, settings: dict[str, object])`; `settings` is the `[storage]` table.
+3. Load it by name:
+   ```toml
+   [storage]
+   backend = "my_package.module:ClassName"
+   ```
+   or publish an entry point in the `miseenplace.storage` group and use the short name.
+4. Run the contract suite against it (10 min): add your factory to `BACKENDS` in `tests/contract/test_storage_contract.py`. It checks ordering, `after`, persistence across reopening, snapshot, files and name safety.
+
+## Sketches (prose only)
+
+- **SQLite**: one table of entries keyed by `seq`, one for files; `append` is an INSERT inside a transaction; `refresh` and `sync` do nothing.
+- **S3 or object storage**: keep the log as numbered objects (`log/000001.json`), because objects are not appendable; `refresh` lists new keys; `sync` does nothing because writes are already remote.
+- **Notion or a database**: entries become rows; guard against two writers with a unique constraint on `seq`, and raise `StorageError` on conflict so the caller retries.
+
+
+<!-- docs/agent-cost.md -->
+
+---
+description: How miseenplace keeps agent token cost low - deterministic work in the CLI, one compact line per item, short skills and a tested output budget.
+---
+
+# Agent cost
+
+A small model should be able to drive miseenplace. The design:
+
+1. **All deterministic work lives in the CLI.** Classification, bookkeeping, deduplication and formatting are code, not prompts.
+2. **The agent never reads raw digests.** `mep inbox` returns only actionable items, one line each: `id · who · where · ask (120 chars) · action`.
+3. **One call per decision.** `mep triage ID --todo` creates the journal item with reference, topic and context filled in.
+4. **Terse by default.** `--verbose` is for humans. The watcher prints at most one line per new item.
+5. **Short skills.** Each `SKILL.md` is at most 60 lines: imperative steps, exact commands, a fixed decision table. Detail is in `references/`, read on demand.
+
+## Measured
+
+`tests/test_output_budget.py` fails if `mep inbox` for the demo data exceeds 700 characters, or if the whole triage loop (inbox plus three triage calls) exceeds 2000 characters, about 500 tokens. Compare: the demo chat in raw form is several times larger.
+
+If you change an output format, the test tells you what it cost.
+
+
+<!-- docs/security.md -->
+
+---
+description: What data miseenplace stores, what the consent gate does and does not guarantee, and how to keep personal data out of public repositories.
+---
+
+# Security
+
+## Credentials
+
+Source credentials come from the environment or a rc file you control. They are never written to the data root, never printed, and hidden from `repr`. Agents are told to name keys, never print values. Keep rc files at mode 600 (a wider mode prints a warning). Only `https://` sites are accepted, and a redirect to another host is not followed with your key.
+
+## Personal data
+
+The data root is personal. It holds:
+
+- the journal (who asked you for what)
+- `corpus/<source>/sent.jsonl`: your own sent messages
+- `style/<source>.md`: your writing style, quoting your messages
+- `requests.jsonl`: what you asked your agent, verbatim
+- the inbox queue: other people's messages addressed to you
+
+Rules:
+
+- Keep the data root out of this code repository and any public one. `.gitignore` excludes `data/`, `state/`, `config.toml`, `style/`, `corpus/` and `requests.jsonl`, and `scripts/check_no_personal.py` (a pre-commit hook and a test) fails on names that should never ship.
+- With the git storage backend, these files are versioned in **your** data repository. Make it private.
+- miseenplace creates these files owner-only (0600, directories 0700).
+- Never paste corpus or style content into a public issue.
+
+## The consent gate
+
+`draft` stores exact text; `send` takes only a draft id, posts the stored text once and verifies its hash. A free-text send is refused. The hash covers the destination and the text, so editing either fails the check. Drafts expire after 24 hours (`[consent] draft_ttl_hours` in `config.toml`). If a send times out or the answer is cut off, the draft becomes `unknown` and is never resent automatically: check the thread, then run `mep send DRAFT --mark-sent` or `--mark-unsent`. A send cut off by a crash leaves a `.sending` claim with the same recovery.
+
+What it is: a structural guard against an agent posting text you never saw, by mistake or by prompt injection through chat content.
+
+What it is not: proof that a human said yes. An agent with shell access could run `mep send` after a draft you never approved. To close that gap, configure your agent harness to ask for confirmation on `mep send` (for example a permission rule requiring a prompt for that command). Treat the skills' "send only on an explicit yes on that exact text" as a rule your harness enforces, not just a request.
+
+## Prompt injection
+
+Chat messages are untrusted input. Skills tell agents to treat message text as data. The only side effect outside your machine is `send`, which needs a draft id and, with the harness rule above, your confirmation.
+
+## Reporting
+
+See `SECURITY.md` at the repository root.

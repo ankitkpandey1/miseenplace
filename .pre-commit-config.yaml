@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: black
+        name: black --check
+        entry: uv run black --check
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy --strict
+        entry: uv run mypy --strict src tests scripts
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: no-personal
+        name: no personal names or domains
+        entry: python scripts/check_no_personal.py
+        language: system
+        pass_filenames: false
+        always_run: true

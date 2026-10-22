@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.tmp
+.venv/
+dist/
+build/
+site/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.cache/
+*.egg-info/
+# personal data never belongs here
+data/
+Action Items.md
+/config.toml
+/style/
+/corpus/
+/requests.jsonl
+/demo/
+state/
+.env
+.zuliprc
