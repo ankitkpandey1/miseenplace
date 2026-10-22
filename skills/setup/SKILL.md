@@ -9,7 +9,7 @@ Goal: `mep inbox` works against the user's own chat. Ask only what you cannot fi
 
 ## Steps
 
-1. Install if missing: `command -v mep || uv tool install miseenplace` (or `pipx install miseenplace`), then `mep --version`.
+1. Install if missing: `command -v mep || uv tool install miseenplace-cli` (or `pipx install miseenplace-cli`), then `mep --version`.
 2. Skills directory: Claude Code `~/.claude/skills/`, Codex `~/.agents/skills/`, Gemini CLI `~/.gemini/skills/`, Cursor `~/.cursor/skills/` (else check your tool's docs). Copy: `cp -r "$(mep skills)"/* DIR/`. Claude Code plugin: `/plugin marketplace add ankitkpandey1/miseenplace`, then `/plugin install miseenplace@miseenplace`.
 3. Show what it does with no account: `mep demo`. To keep the sandbox: `mep demo --keep-dir DIR`, then `export MISEENPLACE_DIR=DIR` and use `mep --source demo inbox --cursor demo`. No Zulip? Stop here: the demo is a full source.
 4. Create the data root: `mep init`. The root is `$MISEENPLACE_DIR` or `~/.local/share/miseenplace`.

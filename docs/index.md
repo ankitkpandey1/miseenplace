@@ -7,7 +7,7 @@ description: miseenplace - every ask, in its place. An agent-native CLI and Agen
 **Every ask, in its place.** A chef's mise en place for your workday: the asks, promises and nudges from chat, laid out before the day starts. Built for Claude Code, Codex, Gemini CLI and Cursor.
 
 ```bash
-uvx miseenplace demo     # two minutes, no account
+uvx --from miseenplace-cli mep demo     # two minutes, no account
 ```
 
 - [Quickstart](quickstart.md)

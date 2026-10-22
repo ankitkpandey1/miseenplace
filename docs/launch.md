@@ -12,7 +12,7 @@ Nothing here is automated. Do it by hand when ready.
 - [ ] Tag `v0.1.0` pushed; release and PyPI publish green
 - [ ] Record a demo with `scripts/record_demo.sh` (writes the gif into `docs/assets/`), then add an image link to it under the badges in README.md
 - [ ] `docs/assets/social-preview.png` uploaded in repository settings
-- [ ] `uvx miseenplace demo` works from PyPI on a clean machine
+- [ ] `uvx --from miseenplace-cli mep demo` works from PyPI on a clean machine
 
 ## Lists to submit to
 
@@ -25,7 +25,7 @@ Nothing here is automated. Do it by hand when ready.
 
 Title: Show HN: miseenplace - the asks and promises from your chat, laid out before the day starts
 
-Body: I kept losing track of what people asked me for in chat and what I promised. miseenplace is a small Python CLI (stdlib only) that turns chat into a triaged inbox and an audit-logged action list. It is built for agents: the CLI does the deterministic work, so a small model can drive it, and a consent gate means an agent can only send a draft a human has seen. Zulip and a demo source ship today; sources and storage backends are plugins. `uvx miseenplace demo` runs it with no account.
+Body: I kept losing track of what people asked me for in chat and what I promised. miseenplace is a small Python CLI (stdlib only) that turns chat into a triaged inbox and an audit-logged action list. It is built for agents: the CLI does the deterministic work, so a small model can drive it, and a consent gate means an agent can only send a draft a human has seen. Zulip and a demo source ship today; sources and storage backends are plugins. `uvx --from miseenplace-cli mep demo` runs it with no account.
 
 ## Reddit draft (r/ClaudeAI, r/commandline)
 

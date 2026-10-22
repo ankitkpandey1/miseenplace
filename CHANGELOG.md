@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Published on PyPI as `miseenplace-cli` (the name `miseenplace` is too close to an existing project). Commands stay `miseenplace` and `mep`.
+
 ## 0.1.0
 
 First release.

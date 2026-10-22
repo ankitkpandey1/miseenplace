@@ -7,20 +7,20 @@
 
 **Every ask, in its place.** An agent-native CLI and set of skills that lay out the asks, promises and nudges from your chat before the day starts: a chef's mise en place for your workday, for Claude Code, Codex, Gemini CLI and Cursor.
 
-[![PyPI](https://img.shields.io/pypi/v/miseenplace)](https://pypi.org/project/miseenplace/)
+[![PyPI](https://img.shields.io/pypi/v/miseenplace-cli)](https://pypi.org/project/miseenplace-cli/)
 [![CI](https://github.com/ankitkpandey1/miseenplace/actions/workflows/ci.yml/badge.svg)](https://github.com/ankitkpandey1/miseenplace/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Python](https://img.shields.io/pypi/pyversions/miseenplace)](https://pypi.org/project/miseenplace/)
+[![Python](https://img.shields.io/pypi/pyversions/miseenplace-cli)](https://pypi.org/project/miseenplace-cli/)
 
 ## Paste this into your agent
 
 ```text
-Install miseenplace with `uv tool install miseenplace`, run `miseenplace skills` to find the
+Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills` to find the
 bundled agent skills, copy them into your skills directory, then run the setup skill and
 follow it. Ask me only for things you cannot find out yourself.
 ```
 
-No account? `uvx miseenplace demo` runs a two-minute tour on fictional data.
+No account? `uvx --from miseenplace-cli mep demo` runs a two-minute tour on fictional data.
 
 ### Where the skills go
 
@@ -126,7 +126,7 @@ description: miseenplace - every ask, in its place. An agent-native CLI and Agen
 **Every ask, in its place.** A chef's mise en place for your workday: the asks, promises and nudges from chat, laid out before the day starts. Built for Claude Code, Codex, Gemini CLI and Cursor.
 
 ```bash
-uvx miseenplace demo     # two minutes, no account
+uvx --from miseenplace-cli mep demo     # two minutes, no account
 ```
 
 - [Quickstart](quickstart.md)
@@ -147,7 +147,7 @@ description: Install miseenplace, try the two-minute demo, connect your chat and
 ## 1. Try it without an account
 
 ```bash
-uv tool install miseenplace      # or: pipx install miseenplace
+uv tool install miseenplace-cli      # or: pipx install miseenplace-cli
 mep demo
 ```
 
@@ -158,7 +158,7 @@ mep demo
 Paste this into Claude Code, Codex, Gemini CLI or Cursor:
 
 ```text
-Install miseenplace with `uv tool install miseenplace`, run `miseenplace skills` to find the
+Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills` to find the
 bundled agent skills, copy them into your skills directory, then run the setup skill and
 follow it. Ask me only for things you cannot find out yourself.
 ```

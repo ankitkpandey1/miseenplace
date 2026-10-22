@@ -7,7 +7,7 @@ description: Install miseenplace, try the two-minute demo, connect your chat and
 ## 1. Try it without an account
 
 ```bash
-uv tool install miseenplace      # or: pipx install miseenplace
+uv tool install miseenplace-cli      # or: pipx install miseenplace-cli
 mep demo
 ```
 
@@ -18,7 +18,7 @@ mep demo
 Paste this into Claude Code, Codex, Gemini CLI or Cursor:
 
 ```text
-Install miseenplace with `uv tool install miseenplace`, run `miseenplace skills` to find the
+Install miseenplace with `uv tool install miseenplace-cli`, run `miseenplace skills` to find the
 bundled agent skills, copy them into your skills directory, then run the setup skill and
 follow it. Ask me only for things you cannot find out yourself.
 ```
