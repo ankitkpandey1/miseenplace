@@ -134,7 +134,9 @@ def detect_installer(
     home, env = home or Path.home(), env if env is not None else os.environ
     pairs = set(itertools.pairwise(Path(prefix).parts))
     if ("uv", "tools") in pairs and (uv := find_tool("uv", home, env)):
-        return Installer("uv", (uv, "tool", "upgrade", "--refresh-package", PACKAGE, PACKAGE))
+        return Installer(
+            "uv", (uv, "tool", "upgrade", "--reinstall-package", PACKAGE, PACKAGE)
+        )  # implies --refresh-package, which `tool upgrade` itself does not accept
     if ("pipx", "venvs") in pairs and (pipx := find_tool("pipx", home, env)):
         return Installer("pipx", (pipx, "upgrade", PACKAGE))
     return None

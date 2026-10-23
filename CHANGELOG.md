@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- Fix: 0.4.1's uv upgrade command passed `--refresh-package`, which `uv tool upgrade` rejects, so uv installs could not upgrade. It now passes `--reinstall-package miseenplace-cli` (which implies the refresh); a test runs the real `uv tool upgrade --help` with the exact flags.
+
 ## 0.4.1
 
 - `mep update` no longer says "upgraded" when uv's cached index hid the new release: the uv command passes `--refresh-package miseenplace-cli`, and after the installer exits 0 the installed `--version` must equal the latest on PyPI, else the command fails naming the manual upgrade. The background auto-update uses the same check, now runs hourly instead of daily and without a terminal on stderr (cron, Claude Code); it finds uv and pipx in `~/.local/bin`, `~/.cargo/bin` and `$UV_INSTALL_DIR` when cron's PATH lacks them, takes a lock so workers never overlap, and does not retry a failed version for 24h. The "is available" notice prints once a day and only on a terminal, for installs it cannot upgrade or after a recorded failure (with the reason and the installer's own command).

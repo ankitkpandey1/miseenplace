@@ -1,6 +1,8 @@
 """The auto-update decisions, on real temporary directories. No network, no upgrades run."""
 
 import fcntl
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -77,7 +79,19 @@ def test_the_uv_command_makes_uv_re_read_the_index_for_this_package(tmp_path: Pa
     uv = update.detect_installer(UV_PREFIX, False, tmp_path, {"PATH": ""})
     assert uv is not None and uv.command[0] == str(uv_bin)
     cmd = list(uv.command)
-    assert cmd[cmd.index("--refresh-package") + 1] == update.PACKAGE
+    assert cmd[cmd.index("--reinstall-package") + 1] == update.PACKAGE
+
+
+def test_the_real_uv_accepts_every_flag_of_the_upgrade_command() -> None:
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is not installed")
+    installer = update.detect_installer(UV_PREFIX, False)
+    assert installer is not None
+    flags = [a for a in installer.command if a.startswith("--")]
+    done = subprocess.run([uv, "tool", "upgrade", *flags, update.PACKAGE, "--help"],
+                          capture_output=True, text=True, check=False)  # fmt: skip
+    assert done.returncode == 0, done.stderr
 
 
 def test_uv_and_pipx_are_found_off_a_minimal_path(tmp_path: Path) -> None:
