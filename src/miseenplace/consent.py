@@ -65,12 +65,17 @@ class Draft:
         """What the human must see before saying yes: destination and the exact text."""
         t = self.target
         dest = t.label or (f"#{t.to} > {t.thread}" if t.thread else f"DM: {t.to}")
+        if t.edit_of:
+            dest = f"EDIT of message {t.edit_of} ({dest})"
         return f"draft {self.id} -> {dest}\n----- exact text -----\n{self.text}\n----- end -----"
 
 
 def digest(target: Target, text: str) -> str:
     """Hash of the destination AND the text, so editing either invalidates the draft."""
-    canonical = json.dumps({"target": asdict(target), "text": text}, sort_keys=True)
+    fields = asdict(target)
+    if fields["edit_of"] is None:  # drafts stored before edits existed keep their hash
+        del fields["edit_of"]
+    canonical = json.dumps({"target": fields, "text": text}, sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

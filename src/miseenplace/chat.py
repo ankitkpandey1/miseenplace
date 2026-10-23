@@ -11,6 +11,7 @@ class Target:
     thread: str | None = None  # topic/thread inside a channel; None means a direct message
     reply_to: str | None = None  # id of the message being answered, if any
     label: str = ""
+    edit_of: str | None = None  # id of my message this replaces: `send` edits it instead of posting
 
 
 @dataclass(frozen=True)

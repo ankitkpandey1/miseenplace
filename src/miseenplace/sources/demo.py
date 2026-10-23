@@ -9,14 +9,17 @@ new source (docs/writing-a-source.md).
 
 import json
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import TypedDict, cast
 
 from miseenplace.chat import Message, Target
 from miseenplace.consent import Draft, Outbox
+from miseenplace.model import MiseError
 from miseenplace.sources.base import (
     Batch,
     Cursors,
+    EditRefused,
     Person,
     SendRefused,
     SourceError,
@@ -154,6 +157,19 @@ class DemoSource:
     def send(self, draft_id: str) -> str:
         return self.outbox.send(draft_id)
 
+    def _own_row(self, message_id: str) -> tuple[Inbox, Row]:
+        inbox = self._read()
+        row = next((m for m in inbox["messages"] if str(m["id"]) == message_id), None)
+        if row is None:
+            raise MiseError(f"no message {message_id}")
+        if not row["mine"]:
+            raise MiseError(f"message {message_id} is not yours")
+        return inbox, row
+
+    def edit(self, message_id: str, text: str) -> Draft:
+        _, row = self._own_row(message_id)
+        return self.outbox.draft(replace(target_of(row["where"]), edit_of=message_id), text)
+
     def users(self, query: str) -> list[Person]:
         people = self._read()["people"]
         return [
@@ -163,6 +179,14 @@ class DemoSource:
         ]
 
     def _deliver(self, target: Target, text: str) -> str:
+        if target.edit_of:
+            try:
+                inbox, row = self._own_row(target.edit_of)
+            except MiseError as e:
+                raise EditRefused(str(e)) from None
+            row["text"] = text
+            self._write(inbox)
+            return target.edit_of
         try:
             me = self._read()["me"]
         except SourceError as e:  # the service is not there: nothing can have been posted

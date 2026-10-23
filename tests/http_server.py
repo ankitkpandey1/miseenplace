@@ -19,12 +19,16 @@ HANG_SECONDS = 2.0
 
 @dataclass
 class Seen:
-    mode: str = "ok"  # ok | reject | hang | truncated | redirect
+    # ok | reject | hang | truncated | redirect | expired (PATCH refused) | down (GET answers 500)
+    mode: str = "ok"
     redirect_to: str = ""
     posts: list[dict[str, list[str]]] = field(default_factory=list)
     authorization: list[str | None] = field(default_factory=list)
     paths: list[str] = field(default_factory=list)  # every GET path seen
     messages: list[dict[str, object]] = field(default_factory=list)  # served by GET /messages
+    patches: list[tuple[str, dict[str, list[str]]]] = field(
+        default_factory=list
+    )  # PATCH path, body
 
 
 def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
@@ -42,6 +46,9 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
         def do_GET(self) -> None:
             seen.authorization.append(self.headers.get("Authorization"))
             seen.paths.append(self.path)
+            if seen.mode == "down":
+                self.reply(500, b"<html>Internal Server Error</html>")
+                return
             if seen.mode == "redirect":
                 self.send_response(302)
                 self.send_header("Location", seen.redirect_to)
@@ -50,11 +57,25 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
             one = re.fullmatch(r"/api/v1/messages/(\d+)", self.path.split("?")[0])
             if one:
                 found = [m for m in seen.messages if m["id"] == int(one[1])]
-                reply = {"result": "success", "message": found[0]} if found else {"result": "error"}
-                self.reply(200, json.dumps(reply).encode())
+                if not found:  # the shape Zulip answers with for an id that does not exist
+                    err = {"result": "error", "msg": "Invalid message(s)", "code": "BAD_REQUEST"}
+                    self.reply(400, json.dumps(err).encode())
+                    return
+                self.reply(200, json.dumps({"result": "success", "message": found[0]}).encode())
                 return
             body = {"result": "success", "members": [], "messages": seen.messages}
             self.reply(200, json.dumps({**body, "found_oldest": True}).encode())
+
+        def do_PATCH(self) -> None:
+            seen.authorization.append(self.headers.get("Authorization"))
+            size = int(self.headers.get("Content-Length", 0))
+            seen.patches.append((self.path, urllib.parse.parse_qs(self.rfile.read(size).decode())))
+            if seen.mode == "expired":  # Zulip's wording when the realm's edit limit has passed
+                msg = "The time limit for editing this message has passed"
+                err = {"result": "error", "msg": msg, "code": "BAD_REQUEST"}
+                self.reply(400, json.dumps(err).encode())
+            else:
+                self.reply(200, b'{"result":"success","msg":""}')
 
         def do_POST(self) -> None:
             seen.authorization.append(self.headers.get("Authorization"))

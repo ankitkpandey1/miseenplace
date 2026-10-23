@@ -14,7 +14,7 @@ A source implements this Protocol (`miseenplace.sources.base.Source`):
 | `send(draft_id)` | post a stored draft |
 | `users(query)` | find people |
 
-A source may also implement `digest(days, include_noise, only_mine)`; `style learn` needs it.
+A source may also implement `digest(days, include_noise, only_mine)`; `style learn` needs it, and `edit(message_id, text)` (check the message is mine, store a draft whose target has `edit_of` set and return it; `_deliver` then applies the edit instead of posting, raising `EditRefused` when it definitely did not apply); `mep edit` needs it.
 
 Because `new` excludes your own messages, anything that reads it must re-read the thread before calling something pending.
 

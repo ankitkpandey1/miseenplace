@@ -48,7 +48,7 @@ from miseenplace.model import (
 )
 from miseenplace.render import brief, diary_line, format_message, line, standup
 from miseenplace.sources import open_source
-from miseenplace.sources.base import Digestible, Lookup, Source, SourceError
+from miseenplace.sources.base import Digestible, Editable, Lookup, Source, SourceError
 from miseenplace.storage.base import Storage, StorageError
 from miseenplace.store import Store
 from miseenplace.tour import tour
@@ -71,8 +71,8 @@ default_actor = "agent"
 # participation_days = 14
 """
 SOURCE_CMDS = (
-    "new", "thread", "digest", "today", "draft", "drafts", "send", "users", "inbox", "triage",
-    "watch",
+    "new", "thread", "digest", "today", "draft", "drafts", "send", "edit", "users", "inbox",
+    "triage", "watch",
 )  # fmt: skip
 
 
@@ -236,6 +236,11 @@ def add_inbox_parsers(
     verdict.add_argument(
         "--mark-unsent", action="store_true", help="after checking: it was NOT posted"
     )
+    e = sub.add_parser(
+        "edit", help="store a draft that replaces a message you sent; `send` applies it"
+    )
+    e.add_argument("message_id", help="id of one of your messages, e.g. printed by `send`")
+    e.add_argument("text", help="the new text, or - to read stdin")
     u = sub.add_parser("users", help="look up people")
     u.add_argument("query")
 
@@ -672,6 +677,14 @@ def run_triage(store: Store, src: Source, a: argparse.Namespace) -> None:
         print(f"send: miseenplace send {d.id}   (only after the human says yes to this text)")
 
 
+def run_edit(src: Source, a: argparse.Namespace) -> None:
+    if not isinstance(src, Editable):
+        raise MiseError(f"source {src.name!r} does not offer edit")
+    d = src.edit(a.message_id, read_text(a.text))
+    print(d.preview())
+    print(f"send: miseenplace send {d.id}   (only after the human says yes to this text)")
+
+
 def run_source_cmd(store: Store, a: argparse.Namespace) -> None:
     if a.cmd == "watch":  # opens its own source each cycle: a bad login is logged, not fatal
         make = partial(open_source, source_name(a), store.root, store.config)
@@ -701,7 +714,14 @@ def run_source_cmd(store: Store, a: argparse.Namespace) -> None:
         d = mark_draft(store.root, src.name, a.draft_id, a.mark_sent)
         print(f"draft {d.id} marked {'sent' if a.mark_sent else 'unsent (sendable again)'}")
     elif a.cmd == "send":
-        print(f"sent {src.name} message {src.send(a.draft_id)}")
+        edit_of = next(
+            (d.target.edit_of for d in pending_drafts(store.root, src.name) if d.id == a.draft_id),
+            None,
+        )
+        ref = src.send(a.draft_id)
+        print(f"edited {src.name} message {ref}" if edit_of else f"sent {src.name} message {ref}")
+    elif a.cmd == "edit":
+        run_edit(src, a)
     else:
         for p in src.users(a.query):
             print(f"{p.name}\t{p.handle}\tbot={p.bot}")

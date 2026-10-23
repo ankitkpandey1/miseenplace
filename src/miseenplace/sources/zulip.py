@@ -21,7 +21,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from http.client import HTTPException, HTTPMessage
 from pathlib import Path
 from typing import IO, TypedDict, cast
@@ -32,6 +32,7 @@ from miseenplace.model import MiseError
 from miseenplace.sources.base import (
     Batch,
     Cursors,
+    EditRefused,
     Person,
     SendRefused,
     SourceError,
@@ -148,6 +149,30 @@ class SameHostRedirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def error_msg(e: urllib.error.HTTPError) -> str:
+    """The `msg` of Zulip's error JSON (`{"result": "error", "msg": ..., "code": ...}`), or ""."""
+    try:
+        body = json.load(e)
+    except (ValueError, OSError):
+        return ""
+    return str(body.get("msg", "")) if isinstance(body, dict) else ""
+
+
+def edit_failure(message_id: str, detail: str) -> str:
+    """Zulip's refusal of a message edit, as a reason the caller can act on."""
+    low = detail.lower()
+    # these English texts are matched as Zulip 11.4 words them (no machine-readable code for them)
+    if "time limit" in low:
+        return f"edit window expired for message {message_id}; post a new message instead"
+    if "turned off message editing" in low:
+        return f"this organization has turned off message editing ({message_id})"
+    if "permission" in low:
+        return f"message {message_id} is not yours"
+    if "invalid message" in low:
+        return f"no message {message_id}"
+    return f"zulip refused the edit of message {message_id}: {detail or 'no reason given'}"
+
+
 class Client:
     def __init__(self, creds: Credentials) -> None:
         self.creds = creds
@@ -156,26 +181,35 @@ class Client:
         self._opener = urllib.request.build_opener(SameHostRedirects)
 
     def call(
-        self, path: str, params: Mapping[str, object] | None = None, post: bool = False
+        self,
+        path: str,
+        params: Mapping[str, object] | None = None,
+        post: bool = False,
+        method: str | None = None,
     ) -> dict[str, object]:
-        """One API call. A failed POST is `SendRefused` when nothing can have been posted."""
+        """One API call. A failed POST is `SendRefused` when nothing can have been posted.
+
+        `method` overrides the verb for a call with a body (PATCH to edit a message).
+        """
         query = urllib.parse.urlencode(params or {})
         url = f"{self.creds.site}/api/v1/{path}"
         req = (
-            urllib.request.Request(url, data=query.encode(), headers=self._headers)
-            if post
+            urllib.request.Request(url, data=query.encode(), headers=self._headers, method=method)
+            if post or method
             else urllib.request.Request(f"{url}?{query}", headers=self._headers)
         )
         try:
             with self._opener.open(req, timeout=TIMEOUT) as r:
                 body = cast(dict[str, object], json.load(r))
         except urllib.error.HTTPError as e:
-            rejected = post and 400 <= e.code < 500
-            raise (SendRefused if rejected else SourceError)(
-                f"zulip {path}: HTTP {e.code}"
-            ) from None
+            rejected = (post or method is not None) and 400 <= e.code < 500
+            error = (SendRefused if rejected else SourceError)(f"zulip {path}: HTTP {e.code}")
+            error.detail = error_msg(e)
+            raise error from None
         except urllib.error.URLError as e:
-            refused = post and isinstance(e.reason, ConnectionRefusedError | socket.gaierror)
+            refused = (post or method == "PATCH") and isinstance(
+                e.reason, ConnectionRefusedError | socket.gaierror
+            )
             raise (SendRefused if refused else SourceError)(
                 f"zulip unreachable ({type(e.reason).__name__}); will retry"
             ) from None
@@ -421,6 +455,28 @@ class ZulipSource:
 
     # ---- writing (always through the consent gate) ----
 
+    def edit(self, message_id: str, text: str) -> Draft:
+        """Check read-only that the message is mine, then store an edit draft for `send`."""
+        if not message_id.isdigit():
+            raise MiseError(f"bad zulip message id {message_id!r}")
+        try:
+            m = self.message(message_id)
+        except SourceError as e:
+            if "invalid message" not in e.detail.lower():  # timeout, 5xx, 401, network: as is
+                raise
+            raise MiseError(edit_failure(message_id, e.detail)) from None
+        if not m.mine or m.target is None:
+            raise MiseError(f"message {message_id} is not yours")
+        return self.outbox.draft(replace(m.target, label=m.where, edit_of=message_id), text)
+
+    def _patch(self, message_id: str, text: str) -> str:
+        try:
+            self.client.call(f"messages/{message_id}", {"content": text}, method="PATCH")
+        except SendRefused as e:  # a 4xx: Zulip refused, nothing changed
+            reason = edit_failure(message_id, e.detail) if e.detail else str(e)
+            raise EditRefused(reason) from None
+        return message_id
+
     def draft(self, target: Target, text: str) -> Draft:
         if target.reply_to:
             m = cast(
@@ -449,6 +505,8 @@ class ZulipSource:
         return self.outbox.send(draft_id)
 
     def _deliver(self, target: Target, text: str) -> str:
+        if target.edit_of:
+            return self._patch(target.edit_of, text)
         try:
             params = self._post_params(target, text)
         except SourceError as e:  # resolving names only reads: nothing was posted

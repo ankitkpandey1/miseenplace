@@ -24,9 +24,15 @@ CURSOR_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 class SourceError(MiseError):
     """The service could not be reached or refused the call. Callers retry next cycle."""
 
+    detail: str = ""  # the service's own reason for a refusal, when it gave one
+
 
 class SendRefused(SourceError, NotDelivered):
     """A send that DEFINITELY did not post (nothing connected, request rejected before posting)."""
+
+
+class EditRefused(MiseError, NotDelivered):
+    """An edit that DEFINITELY did not apply (gone, expired); the message is the reason."""
 
 
 @dataclass(frozen=True)
@@ -84,6 +90,15 @@ class Digestible(Protocol):
     def digest(
         self, days: float, include_noise: bool = False, only_mine: bool = False
     ) -> list[Message]: ...
+
+
+@runtime_checkable
+class Editable(Protocol):
+    """Optional: store a draft that replaces a message I sent (`mep edit`); `send` applies it."""
+
+    name: str
+
+    def edit(self, message_id: str, text: str) -> Draft: ...
 
 
 @runtime_checkable

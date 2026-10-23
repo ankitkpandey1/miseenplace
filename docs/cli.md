@@ -63,6 +63,7 @@ Queue deadlines (`--by`) at or just after those times, so every default falls af
 | `draft TEXT [--channel --topic \| --dm] [--reply-to ID]` | store the exact text; posts nothing |
 | `drafts` | unsent drafts |
 | `send DRAFT_ID [--mark-sent\|--mark-unsent]` | post a stored draft, only an id; the flags record what you found after an unconfirmed send |
+| `edit MESSAGE_ID TEXT` | store a draft that replaces the text of a message you sent (`-` reads stdin). Checks read-only that the message exists and is yours, then prints the draft and the same `send: miseenplace send DRAFT_ID` line as `draft`. `send DRAFT_ID` then edits instead of posting and prints `edited SOURCE message ID`. `drafts` lists it as `EDIT of message ID`. Nothing reaches the chat except a stored draft sent with `send`, so a status message can be updated in place: `id=$(mep send D \| awk '{print $NF}')`, later `mep edit $id TEXT` and `mep send` the new draft. Exit 1 with the reason on stderr when the message is not yours (`message N is not yours`, at `edit`, no draft stored), does not exist (`no message N`) or Zulip's edit time limit has passed (`edit window expired ...`, at `send`; post a new message instead). `send` prints `sent SOURCE message ID`: the id is the last word |
 | `users QUERY` | find people |
 
 ## Your words
