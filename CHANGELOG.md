@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.3
 
 - Auto-update: when the installer exits cleanly but still sees the old version (PyPI's mirrors lag a fresh release by minutes), it is retried at the next hourly check instead of being blocked for 24 hours as a failure. If it still sees the old version after 6 hours, that counts as a failure (24h backoff, and the manual-upgrade notice shows).
 
