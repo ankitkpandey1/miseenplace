@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 - `mep edit MESSAGE_ID TEXT`: update a message you sent, in place, through the same consent gate as a new one. It checks read-only that the message exists and is yours (exit 1 with a reason if not, and no draft is stored), stores an edit draft and prints the same `send: miseenplace send DRAFT_ID` line as `draft`. `mep send DRAFT_ID` then edits (Zulip `PATCH /messages/{id}`) instead of posting and prints `edited SOURCE message ID`; `mep drafts` shows it as `EDIT of message ID`. Exit 1 with a reason when the message is gone or the realm's edit time limit has passed (`edit window expired`; post a new message instead). For scripts such as a release bot that posts one status message and updates it as stages finish. `mep send` already printed `sent SOURCE message ID`; the id is the last word, documented now. Sources opt in with an optional `edit(message_id, text) -> Draft` (`Editable`). `Target` gains `edit_of`; the draft hash covers it, and drafts stored before this keep their hash.
 
