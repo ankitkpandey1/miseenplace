@@ -16,6 +16,11 @@ STATES = (AWAITING, REPLIED, FYI)
 LABEL_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 BARE_LINK_RE = re.compile(r"https?://\S+")
 MARKUP_RE = re.compile(r"\*\*|__|`|^#+\s|^>\s", re.MULTILINE)
+ACK_RE = re.compile(
+    r"(ok(ay)?|k|thanks?( you)?( so much)?|thx|ty|cool|great|sure|noted|got it|np|👍|🙏)"
+    r"[\s!.,:;)D👍🙏\U0001F3FB-\U0001F3FF]*",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -28,7 +33,14 @@ class Thread:
         last = self.messages[-1]
         if last.mine:
             return REPLIED
+        mine = [m for m in self.messages if m.mine]
+        if is_ack(last.text) and mine and not plain(mine[-1].text).endswith("?"):
+            return FYI  # "ok" closing my reply asks nothing of me; "ok" to my question does
         return AWAITING if last.mentioned or self.where.startswith("DM:") else FYI
+
+
+def is_ack(text: str) -> bool:
+    return ACK_RE.fullmatch(plain(text).strip()) is not None
 
 
 def involving_me(messages: list[Message]) -> list[Thread]:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from miseenplace.chat import Message
 from miseenplace.sources.zulip import ZMessage, quote_reply
-from miseenplace.today import AWAITING, FYI, REPLIED, involving_me
+from miseenplace.today import AWAITING, FYI, REPLIED, involving_me, is_ack
 from tests.conftest import Result, run_cli
 
 NOW = time.time()
@@ -159,3 +159,31 @@ def test_answered_threads_show_two_messages_awaiting_ones_three(tmp_path: Path) 
     out = today(tmp_path).out
     assert "k2" in out and "k1" not in out  # awaiting: last 3
     assert "s2" not in out  # you replied last: last 2
+
+
+def test_an_ack_closing_my_reply_does_not_wait_on_me(tmp_path: Path) -> None:
+    seed_day(tmp_path, [
+        ("DM: Haris", "Haris", "does it work on another account?", False, False),
+        ("DM: Haris", "Me", "only one account for now", False, True),
+        ("DM: Haris", "Haris", "Ok", False, False),
+        ("DM: Vee", "Vee", "can you check?", False, False),
+        ("DM: Vee", "Me", "approved, should I merge?", False, True),
+        ("DM: Vee", "Vee", "Thanks, 1 sec, checking FE PR", False, False),
+        ("DM: Kai", "Kai", "thanks!", False, False),
+        ("DM: Jo", "Jo", "PR is up", False, False),
+        ("DM: Jo", "Me", "approved, should I merge?", False, True),
+        ("DM: Jo", "Jo", "sure", False, False),
+    ])  # fmt: skip
+    heads = [ln for ln in today(tmp_path).out.splitlines() if "msg" in ln.split("  ")[-1]]
+    tags = {h.split("  ")[1]: h.split("  ")[0] for h in heads}
+    assert tags["DM: Haris"] == FYI
+    assert tags["DM: Vee"] == AWAITING  # more than an ack
+    assert tags["DM: Kai"] == AWAITING  # no reply of mine for it to close
+    assert tags["DM: Jo"] == AWAITING  # "sure" answers my question: a go-ahead to act on
+
+
+def test_what_counts_as_a_bare_ack() -> None:
+    for text in ("Ok", "thanks 🙏", "👍🙏", "np :D", "thank you so much", "**ok**"):
+        assert is_ack(text), text
+    for text in ("ok?", "ok, but can you check", "sure, can you check X", "k8s is down", "no"):
+        assert not is_ack(text), text

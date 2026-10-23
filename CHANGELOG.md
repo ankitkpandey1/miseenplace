@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `mep today`: a bare acknowledgement ("ok", "thanks 🙏", "np") after your reply no longer marks the thread `awaiting you`; it is `fyi`. An ack that answers your own question ("should I merge?" -> "sure") still waits on you.
+
 ## 0.3.0
 
 - `mep ask DECISION --recommend X --default Y --confidence verified|read|guessed [--by HH:MM] [--blocks-someone|--destructive] [--kind TYPE]` queues a decision in `asks.jsonl`; `mep ask --where TEXT` sets the note the digest ends with. `mep asks` prints the ranked digest (blocking or destructive first, then the earliest deadline), capped at 7 asks and 1800 characters (about 2 minutes), with `+N more` and `Where you were: ...`. `mep asks answer ID accepted|edited|rejected` closes one; `mep asks report [--days N]` gives the top 3 routine types by minutes (`mep log --tag routine:TYPE --spent`) and the share of drafts accepted unchanged per `--kind`. Twice-a-day cron example in `docs/cli.md`. The `eod-review` skill reports both and states the 70%-for-a-week bar for proposing (never enabling) auto-send. The minimum of 5 answered drafts for that bar (`(n<5)` in the report) is an addition beyond the issue. `pings answered/day` in `stats --delta` is a proxy for interruptions, not a measure.
