@@ -18,6 +18,7 @@ from miseenplace import (
     recall,
     recipes,
     reconcile,
+    search,
     stats,
     today,
     update,
@@ -278,6 +279,20 @@ def add_recall_parser(sub: "argparse._SubParsersAction[argparse.ArgumentParser]"
     rc.add_argument("--kind", choices=("lesson", "fact", "recipe"), default="")
 
 
+def add_search_parser(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    sr = sub.add_parser("search", help="find an old item, note, draft, fact or chat message")
+    sr.add_argument("text", type=nonblank, help="words to find; every word must match")
+    kinds = ", ".join(search.KINDS)
+    sr.add_argument(
+        "--in", dest="kinds", action="append", choices=search.KINDS, default=[], metavar="KIND",
+        help=f"only this store, repeatable: {kinds}",
+    )  # fmt: skip
+    sr.add_argument("--from", dest="who", help="chat sender or item counterparty")
+    sr.add_argument("--days", type=positive, help="only the last N days")
+    sr.add_argument("-n", type=positive, default=search.DEFAULT_LIMIT, help="most hits to print")
+    sr.add_argument("--exact", action="store_true", help="no fuzzy matching")
+
+
 def rating(text: str) -> int:
     if text not in ("1", "2", "3", "4", "5"):
         raise argparse.ArgumentTypeError(f"must be 1 to 5, got {text!r}")
@@ -424,6 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_journal_parsers(sub)
     add_inbox_parsers(sub)
     add_personal_parsers(sub)
+    add_search_parser(sub)
     sub.add_parser("init", help="create the data root and a config template")
     dm = sub.add_parser("demo", help="two-minute guided tour on fictional data, no account")
     dm.add_argument("--keep-dir", dest="demo_dir", help="run in this empty directory")
@@ -746,6 +762,13 @@ def run_requests(store: Store, a: argparse.Namespace) -> None:
         print(f"{r.ts}\t{r.source or '-'}\t{r.text}")
 
 
+def run_search(store: Store, a: argparse.Namespace) -> None:
+    q = search.Query(a.text, tuple(a.kinds), a.who, a.days, a.exact, a.n)
+    open_src = partial(open_source, source_name(a), store.root, store.config)
+    for hit in search.search_all(store, q, open_src):
+        print(hit)
+
+
 def run_style(store: Store, a: argparse.Namespace) -> None:
     src = open_source(source_name(a), store.root, store.config)
     name = src.name
@@ -916,7 +939,7 @@ def change_recipes(st: Storage, a: argparse.Namespace) -> None:
 # ---- entry --------------------------------------------------------------------
 
 
-READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats", "asks", "recall")
+READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats", "asks", "recall", "search")
 NO_AUTO_UPDATE = ("send", "update", "skills")
 
 
@@ -996,6 +1019,8 @@ def run(a: argparse.Namespace) -> None:
         run_fact(store, a)
     elif a.cmd == "recipe":
         run_recipe(store, a)
+    elif a.cmd == "search":
+        run_search(store, a)
     elif a.cmd == "recall":
         print(recall.recall(store.storage, a.text, a.max_chars, a.kind))
     else:

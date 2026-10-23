@@ -142,6 +142,21 @@ class DemoSource:
         rows = [m for m in self._read()["messages"] if m["where"] == label_of(target)]
         return [to_message(m) for m in rows[-limit:]]
 
+    def search(
+        self, query: str, sender: str | None = None, days: float | None = None, limit: int = 20
+    ) -> list[Message]:
+        """Newest `limit` messages whose text or place holds every word, like a server would."""
+        words = query.lower().split()
+        cutoff = 0.0 if days is None else time.time() - days * 86400
+        rows = [
+            m
+            for m in reversed(self._read()["messages"])
+            if m["ts"] >= cutoff
+            and (not sender or sender.lower() in m["sender"].lower())
+            and all(w in f"{m['text']} {m['where']}".lower() for w in words)
+        ]
+        return [to_message(m) for m in rows[:limit]]
+
     def draft(self, target: Target, text: str) -> Draft:
         inbox = self._read()
         if target.reply_to:

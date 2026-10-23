@@ -140,6 +140,26 @@ Only current lessons, current facts and approved recipes are searched; supersede
 
 The footer is `N of M items, C chars`: N shown out of M searched. When the budget cut matches off it adds `, K left out`. No match prints `0 of M items` and exits 0. Every query is appended to `recall.jsonl` in the data root as `{ts, query, kind, returned}` (keys like `fact:koyal-apiv2-port`), so you can later check whether the item you needed came back. Like the other read commands, `recall` first refreshes the data root from its remote and falls back to the local copy, with a note on stderr, when offline. A blank query is refused (exit 2); a word containing a digit only matches exactly.
 
+## Search
+
+Find an old item, note, draft, fact or chat message. `mep search "relase mgmt"` prints one line per hit, grouped by kind, best first:
+
+```
+item · #12 · Plan release management · todo · Sam
+log · 10-21 · wrote the release management notes
+chat · 4812 · Alex Chen · #platform > release 2.4 · Release branch is cut. · https://chat.example.com/#narrow/id/4812
+```
+
+| Command | Purpose |
+|---|---|
+| `search QUERY [--in KIND]... [--from WHO] [--days N] [-n N] [--exact]` | search everything, or only the given kinds |
+
+- **Kinds** (`--in`, repeatable): `item` (title, context, next, notes, decisions, topic, tags; open and closed), `log` (diary), `draft` (every draft, sent or not), `request` (the request log), `lesson`, `fact` (current ones), `recipe` (not retracted), `ask`, `chat` (the configured source). Without `--in` all of them are searched.
+- **Matching**: case-insensitive, and every word must match. A partial word matches (`manage` finds `management`). Unless `--exact`, a close word matches too: a typo (`relase`, similarity of at least 0.75, words of 4 or more letters, never a word with a digit) or an abbreviation (`mgmt`: same first letter, letters in order). Exact hits rank first, then the closer the match, then the newer. `--exact` turns the close matches off.
+- **Output**: `item` lines start `item · #ID`, so `mep brief ID` follows; `chat` lines are `chat · ID · sender · where · text · link`. At most `-n` lines (default 10) are printed, cut at the best hits. No hit prints nothing and exits 0.
+- **`--from WHO`**: a substring of the chat sender or of the item's `who` (a draft's recipient). Kinds with no counterparty (log, request, lesson, fact, recipe, ask) are left out. **`--days N`**: only the last N days by the item's last update, the entry or request time, the draft, fact verification or ask date; lessons have no date and are left out.
+- **Chat** is searched by the source, not scanned here: Zulip's `search` narrow (plus `sender` with `--from`; a name must match one active person, else give an email). If that finds nothing and the query has several words, each word is searched once and the union is fuzzy-ranked here (not with `--exact`). A source without search gives `source 'X' cannot search` (exit 1) for `--in chat`, and is skipped silently in a global search; so is a missing source. An unreachable source prints one note on stderr and the local hits still print. Sources opt in with `search(query, sender, days, limit)` (`Searchable` in `sources/base.py`).
+
 ## Setup
 
 `init` creates the data root and `config.toml`; `demo` runs the guided tour.

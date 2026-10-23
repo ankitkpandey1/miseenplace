@@ -112,6 +112,18 @@ class Lookup(Protocol):
     def thread(self, target: Target, limit: int = 40) -> list[Message]: ...
 
 
+@runtime_checkable
+class Searchable(Protocol):
+    """Optional: the service's own search (`mep search`). Newest `limit` messages that match every
+    word of `query`, optionally from one sender and within the last `days`."""
+
+    name: str
+
+    def search(
+        self, query: str, sender: str | None = None, days: float | None = None, limit: int = 20
+    ) -> list[Message]: ...
+
+
 class Cursors:
     """One tiny file per consumer: <root>/state/cursors/<source>/<name>.
 

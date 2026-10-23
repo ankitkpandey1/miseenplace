@@ -414,6 +414,34 @@ class ZulipSource:
         )
         return [to_message(m, self.me, self.site) for m in msgs]
 
+    def search(
+        self, query: str, sender: str | None = None, days: float | None = None, limit: int = 20
+    ) -> list[Message]:
+        """The server's `search` narrow (plus `sender`), newest `limit` first within `days`."""
+        narrow = [{"operator": "search", "operand": query}]
+        if sender:
+            narrow.append({"operator": "sender", "operand": self.sender_email(sender)})
+        msgs = self._fetch(
+            {"anchor": "newest", "num_before": limit, "num_after": 0, "narrow": json.dumps(narrow)}
+        )
+        cutoff = 0.0 if days is None else time.time() - days * 86400
+        return [
+            to_message(m, self.me, self.site) for m in reversed(msgs) if m["timestamp"] >= cutoff
+        ]
+
+    def sender_email(self, who: str) -> str:
+        """An email as given, else the one active person whose name or email contains `who`."""
+        if "@" in who:
+            return who
+        hits = [
+            u["email"]
+            for u in self._members()
+            if u["is_active"] and who.lower() in (u["full_name"] + " " + u["email"]).lower()
+        ]
+        if len(hits) != 1:
+            raise SourceError(f"{len(hits)} zulip users match {who!r}; give an email")
+        return hits[0]
+
     # ---- people ----
 
     def _members(self) -> list[ZUser]:

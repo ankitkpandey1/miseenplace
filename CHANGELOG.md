@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `mep search QUERY [--in KIND]... [--from WHO] [--days N] [-n N] [--exact]`: find an old item, diary entry, draft, request, lesson, fact, recipe, ask or chat message. Searches everything by default, `--in` limits it to one or more kinds. Case-insensitive, every word must match, and typos and abbreviations match too (`relase mgmt` finds `release management`) unless `--exact`; exact hits rank first. One compact line per hit, grouped by kind; item hits show `#ID` for `mep brief`. Chat is searched by the source (Zulip's `search` narrow, plus `sender` for `--from`), with a per-word retry and local fuzzy ranking when the whole query finds nothing. Sources opt in with an optional `search(...)` (`Searchable`); the `demo` and `zulip` sources have it. A source without it is an error for `--in chat` and skipped in a global search.
 - Stored drafts and inbox items written by a newer version load in an older one: unknown keys are ignored instead of crashing `mep watch` with `TypeError ... unexpected keyword argument 'edit_of'`. An edit draft read by a version that does not know `edit_of` still cannot be sent: its hash covers `edit_of`, so `send` refuses it as modified.
 - `mep update` says "PyPI has not caught up with X yet; try again in a few minutes" when the installer exits cleanly but still sees the old version (index/mirror lag), instead of "upgrade failed". After 6 hours of that, or when the installer itself fails, it still says "upgrade failed".
 
