@@ -15,6 +15,7 @@ from miseenplace import (
     lessons,
     lock,
     personal,
+    recipes,
     reconcile,
     stats,
     today,
@@ -260,6 +261,7 @@ def add_personal_parsers(
     add_lessons_parser(sub)
     add_asks_parsers(sub)
     add_facts_parsers(sub)
+    add_recipe_parsers(sub)
 
 
 def rating(text: str) -> int:
@@ -357,6 +359,33 @@ def add_facts_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]"
     for p in (ad, vf, fg):
         p.add_argument("--no-sync", action="store_true")
     fi.add_argument("--width", type=positive, default=120)
+
+
+def add_recipe_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    rp = sub.add_parser("recipe", help="named procedures, proposed then approved: add, show, ...")
+    act = rp.add_subparsers(dest="recipe_cmd", required=True, metavar="action")
+    ad = act.add_parser("add", help="propose a recipe, or a new version of one")
+    ad.add_argument("name")
+    ad.add_argument("--desc", required=True, help="one line: what it does")
+    ad.add_argument("--step", action="append", required=True, help="repeat for each step")
+    ad.add_argument("--tag", action="append", default=[], help="repeat for several tags")
+    ap = act.add_parser("approve", help="put the proposed version in use")
+    ap.add_argument("name")
+    li = act.add_parser("list", help="approved recipes, most recently run first")
+    li.add_argument("--all", action="store_true", help="also the proposed ones")
+    li.add_argument("--tag")
+    li.add_argument("--width", type=positive, default=120)
+    sh = act.add_parser("show", help="numbered steps with {placeholders} filled")
+    sh.add_argument("name")
+    sh.add_argument("--set", action="append", default=[], metavar="K=V", help="fill {K} with V")
+    sh.add_argument("--proposed", action="store_true", help="show the version awaiting approval")
+    rn = act.add_parser("ran", help="count one use")
+    rn.add_argument("name")
+    fg = act.add_parser("forget", help="retire a recipe and record why")
+    fg.add_argument("name")
+    fg.add_argument("--why", default="")
+    for p in (ad, ap, rn, fg):
+        p.add_argument("--no-sync", action="store_true")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -798,6 +827,57 @@ def change_facts(st: Storage, a: argparse.Namespace) -> None:
         print(f"{a.key} forgotten")
 
 
+def run_recipe(store: Store, a: argparse.Namespace) -> None:
+    cmd = a.recipe_cmd
+    if cmd in ("add", "approve", "ran", "forget"):
+        with lock.exclusive(store.root):
+            change_recipes(store.storage, a)
+        if not a.no_sync:
+            store.sync(f"recipe {cmd}")
+        return
+    found = recipes.read_recipes(store.storage)
+    if cmd == "show":
+        show_recipe(found, a)
+        return
+    shown = recipes.listed(found, a.all, a.tag)
+    print("\n".join(r.line(a.width) for r in shown) or "0 recipes")
+
+
+def parse_sets(pairs: list[str]) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for pair in pairs:
+        key, eq, value = pair.partition("=")
+        if not eq or not key:
+            raise MiseError(f"--set needs K=V, got {pair!r}")
+        values[key] = value
+    return values
+
+
+def show_recipe(found: list[recipes.Recipe], a: argparse.Namespace) -> None:
+    values = parse_sets(a.set)
+    recipe = recipes.get_version(found, a.name, a.proposed)
+    lines, missing, unused = recipes.fill(recipe.steps, values)
+    print("\n".join(lines))
+    for key in unused:
+        print(f"miseenplace: note: unused --set {key}", file=sys.stderr)
+    if missing:
+        names = ", ".join("{" + m + "}" for m in missing)
+        raise MiseError(f"unfilled placeholders: {names}; pass --set NAME=VALUE")
+
+
+def change_recipes(st: Storage, a: argparse.Namespace) -> None:
+    if a.recipe_cmd == "add":
+        print(recipes.add_recipe(st, a.name, a.desc, a.step, tuple(a.tag)))
+    elif a.recipe_cmd == "approve":
+        print(recipes.approve(st, a.name))
+    elif a.recipe_cmd == "ran":
+        r = recipes.ran(st, a.name)
+        print(f"{r.name} ran {r.ran}")
+    else:
+        recipes.forget(st, a.name, a.why)
+        print(f"{a.name} forgotten")
+
+
 # ---- entry --------------------------------------------------------------------
 
 
@@ -878,6 +958,8 @@ def run(a: argparse.Namespace) -> None:
         run_asks(store, a)
     elif a.cmd == "fact":
         run_fact(store, a)
+    elif a.cmd == "recipe":
+        run_recipe(store, a)
     else:
         run_journal(store, a)
 

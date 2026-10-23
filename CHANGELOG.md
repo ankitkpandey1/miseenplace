@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `mep recipe add|approve|list|show|ran|forget`: named procedures (description + steps with `{placeholders}`) in `recipes.jsonl`. `add` makes a recipe `proposed`; adding an existing name proposes a new version while the approved one stays in use until `approve`. `list` shows approved recipes by last `ran` (never-run last), `--all` adds proposed ones tagged `(proposed)`. `show NAME --set k=v` prints numbered steps; an unfilled `{x}` is listed on stderr and the exit code is 1, never guessed. `forget --why` retires it with a retraction record; steps that look like secrets are refused. mep only prints steps, it never runs them. The issue's `recall` has no command yet, so `list` is the only default filter.
 - `mep today`: a bare acknowledgement ("ok", "thanks 🙏", "np") after your reply no longer marks the thread `awaiting you`; it is `fyi`. An ack that answers your own question ("should I merge?" -> "sure") still waits on you.
 - `mep fact add|list|get|find|verify|check|forget`: facts with history in `facts.jsonl`. Adding an existing key supersedes the old value and keeps it (`get KEY --history` shows valid dates); `forget --why` records a retraction, so adding the same value again warns; secret-looking values are refused; the source defaults to `unknown` and a chat-sourced fact is marked `untrusted`; `check [--days N]` (default 30) lists facts not verified in N days.
 

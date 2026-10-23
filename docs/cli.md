@@ -103,6 +103,23 @@ What is true about your world, kept in `facts.jsonl` in the data root with its h
 
 Values that look like secrets (`token=...`, `password: ...`, `ghp_...`, private-key headers, long random strings) are refused: store where a secret lives, not the secret. Writes take `--no-sync` and the data-root lock.
 
+## Recipes
+
+Named procedures kept in `recipes.jsonl` in the data root: a name, a one-line description and numbered steps with `{placeholders}`. A new recipe is `proposed` and only counts once you `approve` it. mep never runs a step; it prints them for you or an agent to carry out.
+
+| Command | Purpose |
+|---|---|
+| `recipe add NAME --desc D --step S [--step S]... [--tag T]...` | propose a recipe. On an existing name the new version is also `proposed`; the approved one stays in use until `approve` |
+| `recipe approve NAME` | put the proposed version in use (its use count carries over) |
+| `recipe list [--all] [--tag T] [--width W]` | approved recipes, most recently `ran` first, never-run last: `stop-server  turn a dev box off  (ran 3, last 10-23)`. `--all` adds proposed ones tagged `(proposed)`; `0 recipes` when empty |
+| `recipe show NAME [--set K=V]... [--proposed]` | numbered steps with `{K}` filled. An unfilled placeholder is named on stderr and the exit code is 1; nothing is guessed. `--proposed` shows the version awaiting approval |
+| `recipe ran NAME` | count one use |
+| `recipe forget NAME [--why TEXT]` | retire every version and record why; `show`, `ran` and `approve` then report the reason |
+
+Placeholders are `{name}` with letters, digits and `_`. Write `{{` and `}}` for literal braces (`{{x}}` prints `{x}`); `${HOME}`, `{}` and `{a-b}` are left as written. A `--set` key no step uses gets a note on stderr (exit stays 0); `--set k=v=w` sets `k` to `v=w` and `--set k=` sets it empty.
+
+Steps, descriptions and tags that look like secrets are refused, as for facts. Writes take `--no-sync` and the data-root lock.
+
 ## Setup
 
 `init` creates the data root and `config.toml`; `demo` runs the guided tour.
