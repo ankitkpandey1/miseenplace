@@ -30,6 +30,7 @@ RETRY_FAILED_AFTER = 24 * 3600.0
 LOCK_NAME = "update.lock"
 ENV_DISABLE = "MISEENPLACE_DISABLE_AUTOUPDATE"
 STATE_NAME = "update.json"
+MIRROR_LAG_LIMIT = 6 * 3600.0  # still "not there" after this long is a real failure
 MANUAL_UPGRADE = f"pip install --upgrade {PACKAGE}"
 
 
@@ -42,6 +43,8 @@ class State:
     failed_version: str = ""  # the version whose automatic upgrade last failed
     failed_at: float = 0.0
     failed_reason: str = ""
+    lagging_version: str = ""  # installer ran cleanly but still saw the old version
+    lagging_since: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -76,6 +79,8 @@ def load_state(cache: Path) -> State:
             failed_version=str(raw.get("failed_version", "")),
             failed_at=float(raw.get("failed_at", 0)),
             failed_reason=str(raw.get("failed_reason", "")),
+            lagging_version=str(raw.get("lagging_version", "")),
+            lagging_since=float(raw.get("lagging_since", 0)),
         )
     except (OSError, ValueError, AttributeError, TypeError):
         return State()
@@ -261,6 +266,10 @@ def installed_version_output() -> str:
     return done.stdout
 
 
+class NotYetAvailable(MiseError):
+    """The installer ran cleanly but still sees the old version: PyPI's mirrors lag a release."""
+
+
 def apply_upgrade(installer: Installer, latest: str) -> None:
     """Upgrade, confirm the new version is installed, then refresh skills from the NEW code.
 
@@ -274,7 +283,7 @@ def apply_upgrade(installer: Installer, latest: str) -> None:
             raise MiseError(f"{installer.name} exited {done.returncode}")
         output = installed_version_output()
         if not upgrade_confirmed(output, latest):
-            raise MiseError(
+            raise NotYetAvailable(
                 f"{installer.name} ran but the installed version is still "
                 f"{output.strip() or 'unknown'}, not {latest}"
             )
@@ -297,6 +306,16 @@ def try_upgrade(cache: Path, installer: Installer, latest: str, now: float) -> N
     """apply_upgrade, remembering a failure (version, time, reason) or clearing it on success."""
     try:
         apply_upgrade(installer, latest)
+    except NotYetAvailable as exc:
+        state = load_state(cache)
+        if state.lagging_version != latest:
+            state.lagging_version, state.lagging_since = latest, now
+        if now - state.lagging_since < MIRROR_LAG_LIMIT:
+            save_state(cache, state)
+            raise  # mirrors still catching up: the next hourly check retries
+        state.failed_version, state.failed_at, state.failed_reason = latest, now, str(exc)[:200]
+        save_state(cache, state)
+        raise
     except MiseError as exc:
         state = load_state(cache)
         state.failed_version, state.failed_at, state.failed_reason = latest, now, str(exc)[:200]
@@ -304,6 +323,7 @@ def try_upgrade(cache: Path, installer: Installer, latest: str, now: float) -> N
         raise
     state = load_state(cache)
     state.failed_version, state.failed_at, state.failed_reason = "", 0.0, ""
+    state.lagging_version, state.lagging_since = "", 0.0
     save_state(cache, state)
 
 

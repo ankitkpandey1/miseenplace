@@ -3,6 +3,7 @@
 import fcntl
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -179,3 +180,19 @@ def test_a_second_worker_exits_at_once_while_the_lock_is_held(tmp_path: Path) ->
     assert update.run_worker(tmp_path, T0, None, fetch)
     assert seen == [1]
     assert not update.run_worker(tmp_path, T0 + 1, None, fetch)  # no longer due under the lock
+
+
+def test_an_installer_that_still_sees_the_old_version_is_retried_then_fails_after_6h(
+    tmp_path: Path,
+) -> None:
+    if not (Path(sys.executable).parent / "miseenplace").is_file():
+        pytest.skip("no miseenplace entry point next to this interpreter")
+    lagging = Installer("uv", ("true",))  # exits 0 and installs nothing, like a lagging mirror
+    for now in (1000.0, 1000.0 + 3600):
+        with pytest.raises(update.NotYetAvailable):
+            update.try_upgrade(tmp_path, lagging, "999.0.0", now)
+        state = update.load_state(tmp_path)
+        assert state.failed_version == "" and state.lagging_since == 1000.0
+    with pytest.raises(update.NotYetAvailable):
+        update.try_upgrade(tmp_path, lagging, "999.0.0", 1000.0 + update.MIRROR_LAG_LIMIT)
+    assert update.load_state(tmp_path).failed_version == "999.0.0"  # now the notice can show it

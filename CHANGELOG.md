@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Auto-update: when the installer exits cleanly but still sees the old version (PyPI's mirrors lag a fresh release by minutes), it is retried at the next hourly check instead of being blocked for 24 hours as a failure. If it still sees the old version after 6 hours, that counts as a failure (24h backoff, and the manual-upgrade notice shows).
+
 ## 0.4.2
 
 - Fix: 0.4.1's uv upgrade command passed `--refresh-package`, which `uv tool upgrade` rejects, so uv installs could not upgrade. It now passes `--reinstall-package miseenplace-cli` (which implies the refresh); a test runs the real `uv tool upgrade --help` with the exact flags.
