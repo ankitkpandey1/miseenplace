@@ -338,6 +338,12 @@ def update_now(cache: Path, installer: Installer | None, fetch: Callable[[], str
         return f"miseenplace {verdict.latest} is available: {MANUAL_UPGRADE}"
     try:
         try_upgrade(cache, installer, verdict.latest, time.time())
+    except NotYetAvailable as exc:
+        if load_state(cache).failed_version == verdict.latest:  # lagging past the limit: real
+            raise MiseError(f"upgrade failed: {exc}; run: {' '.join(installer.command)}") from exc
+        raise MiseError(
+            f"PyPI has not caught up with {verdict.latest} yet; try again in a few minutes"
+        ) from exc
     except MiseError as exc:
         raise MiseError(f"upgrade failed: {exc}; run: {' '.join(installer.command)}") from exc
     return f"upgraded miseenplace {__version__} -> {verdict.latest}; it applies on the next run"

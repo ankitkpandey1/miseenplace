@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Protocol
 
 from miseenplace import private
-from miseenplace.chat import Message, Target
+from miseenplace.chat import Message, Target, load
 from miseenplace.model import MiseError
 from miseenplace.sources.base import Source
 
@@ -134,8 +134,8 @@ class Inbox:
 
     def _load(self, path: Path) -> InboxItem:
         data = json.loads(path.read_text(encoding="utf-8"))
-        target = Target(**data["target"]) if data["target"] else None
-        return InboxItem(**{**data, "target": target})
+        target = load(Target, data["target"]) if data["target"] else None
+        return load(InboxItem, {**data, "target": target})
 
     def items(self) -> list[InboxItem]:
         found = [self._load(p) for p in self.dir.glob("*.json")] if self.dir.exists() else []

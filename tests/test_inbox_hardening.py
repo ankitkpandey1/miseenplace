@@ -1,5 +1,6 @@
 """Inbox and watch under failure: errors mid-way, answered elsewhere, retries, bad intervals."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -150,3 +151,17 @@ def test_eta_and_topic_are_rejected_where_nothing_is_filed(
     assert r.code == 1
     assert "only go with" in r.err
     assert Inbox(root, DemoSource(root)).get("3").status == "open"
+
+
+def test_an_inbox_item_with_keys_from_a_newer_version_still_loads(root: Path) -> None:
+    inbox = Inbox(root, DemoSource(root))
+    inbox.ingest("demo")
+    path = next(inbox.dir.glob("*.json"))
+    data = json.loads(path.read_text())
+    data["later"] = 1
+    if data["target"]:
+        data["target"]["edit_of"] = "7"
+        data["target"]["later"] = 2
+    path.write_text(json.dumps(data))
+    assert inbox.get(path.stem).id == path.stem
+    assert path.stem in [i.id for i in inbox.items()]

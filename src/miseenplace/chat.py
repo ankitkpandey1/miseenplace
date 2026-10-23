@@ -1,6 +1,10 @@
 """The two small types every layer shares: where a message goes and what a message is."""
 
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, fields
+from typing import TypeVar
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -25,3 +29,10 @@ class Message:
     mine: bool = False  # I wrote it; `new` never returns these
     url: str | None = None
     target: Target | None = None  # where a reply to this message goes; None if unknown
+
+
+def load(cls: type[T], data: Mapping[str, object]) -> T:
+    """Build a dataclass from stored JSON, ignoring keys a newer version added."""
+    names = {f.name for f in fields(cls)}  # type: ignore[arg-type]
+    build: Callable[..., T] = cls
+    return build(**{k: v for k, v in data.items() if k in names})

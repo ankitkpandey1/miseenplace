@@ -196,3 +196,28 @@ def test_an_installer_that_still_sees_the_old_version_is_retried_then_fails_afte
     with pytest.raises(update.NotYetAvailable):
         update.try_upgrade(tmp_path, lagging, "999.0.0", 1000.0 + update.MIRROR_LAG_LIMIT)
     assert update.load_state(tmp_path).failed_version == "999.0.0"  # now the notice can show it
+
+
+def test_update_now_says_pypi_lags_when_the_installer_sees_the_old_version(
+    tmp_path: Path,
+) -> None:
+    if not (Path(sys.executable).parent / "miseenplace").is_file():
+        pytest.skip("no miseenplace entry point next to this interpreter")
+    lagging = Installer("uv", ("true",))  # exits 0 and installs nothing, like a lagging mirror
+    with pytest.raises(MiseError, match=r"PyPI has not caught up with 999\.0\.0 yet") as lag:
+        update.update_now(tmp_path, lagging, lambda: "999.0.0")
+    assert "try again in a few minutes" in str(lag.value)
+    assert "upgrade failed" not in str(lag.value)
+
+
+def test_update_now_still_says_upgrade_failed_for_a_failing_installer_and_for_old_lag(
+    tmp_path: Path,
+) -> None:
+    if not (Path(sys.executable).parent / "miseenplace").is_file():
+        pytest.skip("no miseenplace entry point next to this interpreter")
+    with pytest.raises(MiseError, match="upgrade failed: uv exited 1"):
+        update.update_now(tmp_path, Installer("uv", ("false",)), lambda: "999.0.0")
+    stale = State(lagging_version="999.0.0", lagging_since=1.0)  # lagging for decades
+    update.save_state(tmp_path, stale)
+    with pytest.raises(MiseError, match=r"upgrade failed: .*is still"):
+        update.update_now(tmp_path, Installer("uv", ("true",)), lambda: "999.0.0")

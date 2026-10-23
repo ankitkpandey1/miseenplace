@@ -24,7 +24,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from miseenplace import private
-from miseenplace.chat import Target
+from miseenplace.chat import Target, load
 from miseenplace.config import CONFIG_NAME, load_config
 from miseenplace.model import MiseError, now
 
@@ -134,7 +134,7 @@ class Outbox:
 
     def _read(self, path: Path) -> Draft:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return Draft(**{**data, "target": Target(**data["target"])})
+        return load(Draft, {**data, "target": load(Target, data["target"])})
 
     def _expired(self, d: Draft) -> bool:
         return time.time() - d.created_ts > self.ttl_seconds

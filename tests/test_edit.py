@@ -1,6 +1,8 @@
 """`mep edit`: replace the text of a message I sent, over a real local Zulip-shaped server."""
 
 import argparse
+import hashlib
+import json
 import socket
 import subprocess
 import sys
@@ -239,3 +241,23 @@ def test_cli_edit_with_a_dash_and_real_stdin_text(tmp_path: Path) -> None:
     draft_id = r.stdout.split("draft ")[1].split()[0]
     assert run_cli(tmp_path, "--source", "demo", "send", draft_id).code == 0
     assert DemoSource(tmp_path).message(posted).text == "status: from stdin"
+
+
+def test_a_draft_with_a_key_this_version_does_not_know_loads_but_is_never_sent(
+    tmp_path: Path,
+) -> None:
+    """A newer writer's extra target key must not crash an older reader, nor let it send."""
+    seen = Seen(messages=[row(7, ME)])
+    with serve(seen) as base:
+        src = source(tmp_path, base)
+        d = src.edit("7", "x")
+        path = tmp_path / "state" / "drafts" / f"{d.id}.json"
+        stored = json.loads(path.read_text())
+        stored["target"]["later"] = "y"  # what a newer writer hashes and stores
+        canonical = json.dumps({"target": stored["target"], "text": "x"}, sort_keys=True)
+        stored["sha256"] = hashlib.sha256(canonical.encode()).hexdigest()
+        path.write_text(json.dumps(stored))
+        assert [p.id for p in pending_drafts(tmp_path, src.name)] == [d.id]
+        with pytest.raises(MiseError, match="modified"):
+            src.send(d.id)
+    assert seen.patches == [] and seen.posts == []
