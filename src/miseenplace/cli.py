@@ -59,7 +59,7 @@ CONFIG_TEMPLATE = """\
 actors = ["me", "agent"]        # who may write; --by picks one
 default_actor = "agent"
 # default_source = "zulip"      # or set MISEENPLACE_SOURCE
-# auto_update = false           # skip the daily background update check
+# auto_update = false           # skip the hourly background update check
 
 # [storage]
 # backend = "git"               # local (default) | git | "package.module:Class"
@@ -926,15 +926,16 @@ def auto_update_flag(a: argparse.Namespace) -> bool:
 
 
 def start_auto_update(a: argparse.Namespace) -> None:
-    """Once a day, in the background, never for send; the new version applies on the next run."""
-    if a.cmd in NO_AUTO_UPDATE or not update.auto_enabled(os.environ, sys.stderr.isatty(), True):
+    """Hourly, in the background, never for send; the new version applies on the next run."""
+    if a.cmd in NO_AUTO_UPDATE or not update.auto_enabled(os.environ, True):
         return
     if not auto_update_flag(a):
         return
     cache, now = update.cache_dir(), time.time()
-    notice = update.pending_notice(cache, now, __version__, update.current_installer())
-    if notice:
-        print(notice, file=sys.stderr)
+    if sys.stderr.isatty():
+        notice = update.pending_notice(cache, now, __version__, update.current_installer())
+        if notice:
+            print(notice, file=sys.stderr)
     update.start_background_check(cache, now)
 
 

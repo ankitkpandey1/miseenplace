@@ -152,7 +152,7 @@ The footer is `N of M items, C chars`: N shown out of M searched. When the budge
 
 ## Updates
 
-At most once a day, `mep` starts a detached background process that asks `https://pypi.org/pypi/miseenplace-cli/json` for the newest version (3 second timeout; every failure is silent). The check never delays your command. The timestamp and the result are kept in `$XDG_CACHE_HOME/miseenplace/update.json` (default `~/.cache/miseenplace`).
+At most once an hour, `mep` starts a detached background process that asks `https://pypi.org/pypi/miseenplace-cli/json` for the newest version (3 second timeout; every failure is silent). The check never delays your command. The timestamp and the result are kept in `$XDG_CACHE_HOME/miseenplace/update.json` (default `~/.cache/miseenplace`).
 
 If a newer version exists, the installer is found from the environment's path:
 
@@ -160,8 +160,8 @@ If a newer version exists, the installer is found from the environment's path:
 |---|---|
 | `uv tool install` (path contains `uv/tools`) | `uv tool upgrade miseenplace-cli` |
 | `pipx install` (path contains `pipx/venvs`) | `pipx upgrade miseenplace-cli` |
-| anything else (a virtual environment, system Python, a source checkout) | not upgraded; one line on stderr, once a day: `miseenplace X.Y.Z is available: pip install --upgrade miseenplace-cli` |
+| anything else (a virtual environment, system Python, a source checkout) | not upgraded; one line on stderr, once a day and only when stderr is a terminal: `miseenplace X.Y.Z is available: pip install --upgrade miseenplace-cli` |
 
 The new version applies on the next run. After an auto-update or `mep update`, skills copied with `skills --install` are re-copied. After a manual `uv tool upgrade`, run `mep skills --refresh`.
 
-It is off when `MISEENPLACE_DISABLE_AUTOUPDATE` is set (to anything but `0`), when `auto_update = false` is in `config.toml`, when `CI` is set, when stderr is not a terminal, and always for `send`. `mep update` still runs when asked.
+It is off when `MISEENPLACE_DISABLE_AUTOUPDATE` is set (to anything but `0`), when `auto_update = false` is in `config.toml`, when `CI` is set, and always for `send`. `mep update` still runs when asked.

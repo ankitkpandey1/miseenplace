@@ -132,7 +132,7 @@ Alpha. The commands and file formats can still change between 0.x releases; the 
 
 ## Updates
 
-`mep` checks PyPI at most once a day, in a background process that never delays your command. If a newer version exists and it was installed with `uv tool` or `pipx`, it upgrades itself; the new version applies on the next run, and skills copied with `mep skills --install` are refreshed on an auto-update or `mep update`. Any other install (a virtual environment, system Python, a checkout) only gets a notice: one line to stderr, once a day: `miseenplace X.Y.Z is available: <upgrade command>`.
+`mep` checks PyPI at most once an hour, in a background process that never delays your command. If a newer version exists and it was installed with `uv tool` or `pipx`, it upgrades itself; the new version applies on the next run, and skills copied with `mep skills --install` are refreshed on an auto-update or `mep update`. Any other install (a virtual environment, system Python, a checkout) only gets a notice: one line to stderr, once a day and only on a terminal: `miseenplace X.Y.Z is available: <upgrade command>`.
 
 - Check and upgrade now: `mep update`. If you upgrade by hand (`uv tool upgrade miseenplace-cli`), run `mep skills --refresh` afterwards to refresh the copied skills.
 - Turn it off: `MISEENPLACE_DISABLE_AUTOUPDATE=1`, or `auto_update = false` in `config.toml`.

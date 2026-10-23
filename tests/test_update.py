@@ -1,27 +1,32 @@
 """The auto-update decisions, on real temporary directories. No network, no upgrades run."""
 
+import fcntl
 from pathlib import Path
 
+import pytest
+
 from miseenplace import update
+from miseenplace.model import MiseError
 from miseenplace.update import Installer, State
 
+UV_PREFIX = "/h/.local/share/uv/tools/miseenplace-cli"
 UV = Installer("uv", ("uv", "tool", "upgrade", "miseenplace-cli"))
-DAY = update.CHECK_EVERY
+HOUR = update.CHECK_EVERY
+DAY = update.NOTICE_EVERY
 T0 = 1_700_000_000.0
 
 
-def test_check_runs_once_a_day() -> None:
+def test_check_runs_once_an_hour() -> None:
     assert update.is_due(State(), now=T0)
-    assert not update.is_due(State(checked=T0), now=T0 + DAY - 1)
-    assert update.is_due(State(checked=T0), now=T0 + DAY)
+    assert not update.is_due(State(checked=T0), now=T0 + HOUR - 1)
+    assert update.is_due(State(checked=T0), now=T0 + HOUR)
 
 
-def test_opt_outs_and_non_interactive_runs_never_auto_update() -> None:
-    assert update.auto_enabled({}, tty=True, config_flag=True)
-    assert not update.auto_enabled({"MISEENPLACE_DISABLE_AUTOUPDATE": "1"}, True, True)
-    assert not update.auto_enabled({"CI": "true"}, True, True)
-    assert not update.auto_enabled({}, tty=False, config_flag=True)
-    assert not update.auto_enabled({}, tty=True, config_flag=False)
+def test_opt_outs_disable_auto_update_but_a_missing_terminal_does_not() -> None:
+    assert update.auto_enabled({}, config_flag=True)  # no terminal needed: the worker is silent
+    assert not update.auto_enabled({"MISEENPLACE_DISABLE_AUTOUPDATE": "1"}, True)
+    assert not update.auto_enabled({"CI": "true"}, True)
+    assert not update.auto_enabled({}, config_flag=False)
 
 
 def test_newer_version_upgrades_only_when_the_installer_is_known() -> None:
@@ -59,6 +64,45 @@ def test_only_uv_tool_and_pipx_installs_are_upgraded_for_you() -> None:
     assert update.detect_installer("/h/.local/share/uv/tools/x", editable=True) is None
 
 
+def fake_tool(home: Path, rel: str, name: str) -> Path:
+    path = home / rel / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n")
+    path.chmod(0o755)
+    return path
+
+
+def test_the_uv_command_makes_uv_re_read_the_index_for_this_package(tmp_path: Path) -> None:
+    uv_bin = fake_tool(tmp_path, ".local/bin", "uv")
+    uv = update.detect_installer(UV_PREFIX, False, tmp_path, {"PATH": ""})
+    assert uv is not None and uv.command[0] == str(uv_bin)
+    cmd = list(uv.command)
+    assert cmd[cmd.index("--refresh-package") + 1] == update.PACKAGE
+
+
+def test_uv_and_pipx_are_found_off_a_minimal_path(tmp_path: Path) -> None:
+    env = {"PATH": ""}
+    assert update.detect_installer(UV_PREFIX, False, tmp_path, env) is None
+    cargo = fake_tool(tmp_path, ".cargo/bin", "uv")
+    found = update.detect_installer(UV_PREFIX, False, tmp_path, env)
+    assert found is not None and found.command[0] == str(cargo)
+    custom = fake_tool(tmp_path, "custom", "uv")
+    env = {"PATH": "", "UV_INSTALL_DIR": str(custom.parent)}
+    found = update.detect_installer(UV_PREFIX, False, tmp_path, env)
+    assert found is not None and found.command[0] == str(custom)
+    pipx = fake_tool(tmp_path, ".local/bin", "pipx")
+    found = update.detect_installer("/h/.local/pipx/venvs/miseenplace-cli", False, tmp_path, env)
+    assert found is not None and found.command[0] == str(pipx)
+
+
+def test_an_upgrade_counts_only_when_the_installed_version_is_the_latest_or_newer() -> None:
+    assert update.upgrade_confirmed("miseenplace 0.4.0\n", "0.4.0")
+    assert update.upgrade_confirmed("miseenplace 0.5.0\n", "0.4.0")
+    assert not update.upgrade_confirmed("miseenplace 0.3.0\n", "0.4.0")
+    assert not update.upgrade_confirmed("Traceback: boom", "0.4.0")
+    assert not update.upgrade_confirmed("", "0.4.0")
+
+
 def test_a_failed_fetch_keeps_the_known_newer_version(tmp_path: Path) -> None:
     update.check(tmp_path, T0, "0.2.0", lambda: "0.3.0", None)
     update.check(tmp_path, T0 + DAY, "0.2.0", lambda: None, None)
@@ -75,3 +119,49 @@ def test_skills_are_copied_and_refreshed_into_recorded_dirs(tmp_path: Path) -> N
     (src / "setup" / "SKILL.md").write_text("v2")
     assert update.refresh_skills(cache, src) == 1
     assert (dest / "setup" / "SKILL.md").read_text() == "v2"
+
+
+def test_a_failed_upgrade_is_not_retried_for_a_day_and_a_newer_version_resets_it() -> None:
+    state = State(failed_version="0.4.0", failed_at=T0, failed_reason="uv exited 1")
+    assert update.retry_blocked(state, "0.4.0", T0 + DAY - 1)
+    assert not update.retry_blocked(state, "0.4.0", T0 + DAY)
+    assert not update.retry_blocked(state, "0.4.1", T0 + 1)
+
+
+def test_a_failure_is_recorded_with_version_and_reason_and_survives_a_reload(
+    tmp_path: Path,
+) -> None:
+    broken = Installer("uv", ("false",))
+    with pytest.raises(MiseError, match="exited 1"):
+        update.try_upgrade(tmp_path, broken, "0.4.0", T0)
+    state = update.load_state(tmp_path)
+    assert (state.failed_version, state.failed_at) == ("0.4.0", T0)
+    assert "exited 1" in state.failed_reason
+
+
+def test_the_notice_waits_while_an_automatic_upgrade_is_pending(tmp_path: Path) -> None:
+    update.check(tmp_path, T0, "0.2.0", lambda: "0.3.0", UV)
+    assert update.pending_notice(tmp_path, T0 + 1, "0.2.0", UV) is None
+    state = update.load_state(tmp_path)
+    state.failed_version, state.failed_at, state.failed_reason = "0.3.0", T0, "uv exited 1"
+    update.save_state(tmp_path, state)
+    notice = update.pending_notice(tmp_path, T0 + 2, "0.2.0", UV)
+    assert notice is not None
+    assert "uv exited 1" in notice and " ".join(UV.command) in notice
+    assert update.MANUAL_UPGRADE not in notice
+
+
+def test_a_second_worker_exits_at_once_while_the_lock_is_held(tmp_path: Path) -> None:
+    seen: list[int] = []
+
+    def fetch() -> str | None:
+        seen.append(1)
+        return "0.3.0"
+
+    with open(tmp_path / update.LOCK_NAME, "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        assert not update.run_worker(tmp_path, T0, None, fetch)
+        assert seen == []
+    assert update.run_worker(tmp_path, T0, None, fetch)
+    assert seen == [1]
+    assert not update.run_worker(tmp_path, T0 + 1, None, fetch)  # no longer due under the lock

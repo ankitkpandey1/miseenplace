@@ -94,6 +94,6 @@ Add a private git remote with the git storage backend: [Concepts](concepts.md#st
 
 ## 7. Updates and uninstall
 
-`mep` checks PyPI once a day in the background and upgrades itself when it was installed with `uv tool` or `pipx`, and otherwise prints a notice; the new version applies on the next run. `mep update` does it now. Turn it off with `MISEENPLACE_DISABLE_AUTOUPDATE=1` or `auto_update = false` in `config.toml` ([details](cli.md#updates)).
+`mep` checks PyPI once an hour in the background and upgrades itself when it was installed with `uv tool` or `pipx`, and otherwise prints a notice; the new version applies on the next run. `mep update` does it now. Turn it off with `MISEENPLACE_DISABLE_AUTOUPDATE=1` or `auto_update = false` in `config.toml` ([details](cli.md#updates)).
 
 To remove it: `uv tool uninstall miseenplace-cli` (or `pipx uninstall miseenplace-cli`) and delete the skills you copied. Your data root is yours to keep or delete.

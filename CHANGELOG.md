@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `mep update` no longer says "upgraded" when uv's cached index hid the new release: the uv command passes `--refresh-package miseenplace-cli`, and after the installer exits 0 the installed `--version` must equal the latest on PyPI, else the command fails naming the manual upgrade. The background auto-update uses the same check, now runs hourly instead of daily and without a terminal on stderr (cron, Claude Code); it finds uv and pipx in `~/.local/bin`, `~/.cargo/bin` and `$UV_INSTALL_DIR` when cron's PATH lacks them, takes a lock so workers never overlap, and does not retry a failed version for 24h. The "is available" notice prints once a day and only on a terminal, for installs it cannot upgrade or after a recorded failure (with the reason and the installer's own command).
+
 ## 0.4.0
 
 - `mep recall TEXT [--max-chars N] [--kind lesson|fact|recipe]`: one relevance-ranked read across current lessons, current facts and approved recipes (BM25, pure Python, no dependency; names and tags weigh 2x a body word; a small recency/votes boost of at most 1.2x). A query word with no exact hit maps to the closest known word by trigram similarity (`challnger` finds `challenger`, `deploys` finds `deploy`). One line per item, best first, cut at `--max-chars` (default 1200), footer `N of M items, C chars` plus `K left out`. Each query is appended to `recall.jsonl` (query, returned keys) to check later whether recall found what was needed. The bundled `journal` skill runs it at the start of a task, after `note-request`, so the agent starts from what is already known. `eod-review` is unchanged: it needs every lesson with its id to dedupe and vote, not the relevant few. A query word with a digit is never fuzzy-matched; a blank query is refused (exit 2).

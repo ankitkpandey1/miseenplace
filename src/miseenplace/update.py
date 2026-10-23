@@ -1,5 +1,6 @@
-"""Daily update check. It runs in a detached process; a new version applies on the next run."""
+"""Hourly update check. It runs in a detached process; a new version applies on the next run."""
 
+import fcntl
 import http.client
 import itertools
 import json
@@ -21,9 +22,12 @@ from miseenplace.model import MiseError
 
 PACKAGE = "miseenplace-cli"
 PYPI_URL = f"https://pypi.org/pypi/{PACKAGE}/json"
-CHECK_EVERY = 24 * 3600.0
+CHECK_EVERY = 3600.0
+NOTICE_EVERY = 24 * 3600.0
 FETCH_TIMEOUT = 3.0
 UPGRADE_TIMEOUT = 300.0
+RETRY_FAILED_AFTER = 24 * 3600.0
+LOCK_NAME = "update.lock"
 ENV_DISABLE = "MISEENPLACE_DISABLE_AUTOUPDATE"
 STATE_NAME = "update.json"
 MANUAL_UPGRADE = f"pip install --upgrade {PACKAGE}"
@@ -35,6 +39,9 @@ class State:
     notified: float = 0.0  # last time the "is available" line was printed
     available: str = ""  # newest version seen, "" when current or unknown
     skill_dirs: list[str] = field(default_factory=list)
+    failed_version: str = ""  # the version whose automatic upgrade last failed
+    failed_at: float = 0.0
+    failed_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -66,6 +73,9 @@ def load_state(cache: Path) -> State:
             notified=float(raw.get("notified", 0)),
             available=str(raw.get("available", "")),
             skill_dirs=dirs,
+            failed_version=str(raw.get("failed_version", "")),
+            failed_at=float(raw.get("failed_at", 0)),
+            failed_reason=str(raw.get("failed_reason", "")),
         )
     except (OSError, ValueError, AttributeError, TypeError):
         return State()
@@ -91,26 +101,41 @@ def is_newer(latest: str, current: str) -> bool:
     return a is not None and b is not None and a > b
 
 
-def auto_enabled(env: Mapping[str, str], tty: bool, config_flag: bool) -> bool:
-    """False when opted out by env or config, in CI, or when nobody is watching a terminal."""
+def auto_enabled(env: Mapping[str, str], config_flag: bool) -> bool:
+    """False when opted out by env or config, or in CI. The worker is detached and silent."""
     if env.get(ENV_DISABLE, "") not in ("", "0") or env.get("CI"):
         return False
-    return tty and config_flag
+    return config_flag
 
 
 def is_due(state: State, now: float) -> bool:
     return now - state.checked >= CHECK_EVERY
 
 
-def detect_installer(prefix: str, editable: bool) -> Installer | None:
+def find_tool(name: str, home: Path, env: Mapping[str, str]) -> str | None:
+    """PATH first, then where installers put their binaries (cron has a minimal PATH)."""
+    if found := shutil.which(name, path=env.get("PATH", "")):
+        return found
+    dirs = [home / ".local" / "bin", home / ".cargo" / "bin"]
+    if install_dir := env.get("UV_INSTALL_DIR"):
+        dirs.insert(0, Path(install_dir))
+    for d in dirs:
+        if (candidate := d / name).is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def detect_installer(
+    prefix: str, editable: bool, home: Path | None = None, env: Mapping[str, str] | None = None
+) -> Installer | None:
     """Only uv tool and pipx installs are upgraded for you; the path tells them apart."""
     if editable:
         return None
-    parts = Path(prefix).parts
-    pairs = set(itertools.pairwise(parts))
-    if ("uv", "tools") in pairs and (uv := shutil.which("uv")):
-        return Installer("uv", (uv, "tool", "upgrade", PACKAGE))
-    if ("pipx", "venvs") in pairs and (pipx := shutil.which("pipx")):
+    home, env = home or Path.home(), env if env is not None else os.environ
+    pairs = set(itertools.pairwise(Path(prefix).parts))
+    if ("uv", "tools") in pairs and (uv := find_tool("uv", home, env)):
+        return Installer("uv", (uv, "tool", "upgrade", "--refresh-package", PACKAGE, PACKAGE))
+    if ("pipx", "venvs") in pairs and (pipx := find_tool("pipx", home, env)):
         return Installer("pipx", (pipx, "upgrade", PACKAGE))
     return None
 
@@ -156,12 +181,20 @@ def check(
 def pending_notice(
     cache: Path, now: float, current: str, installer: Installer | None
 ) -> str | None:
-    """The once-a-day line for installs we cannot upgrade ourselves."""
+    """The once-a-day line for a known newer version we cannot or did not manage to install."""
     state = load_state(cache)
-    if installer or not is_newer(state.available, current) or now - state.notified < CHECK_EVERY:
+    if not is_newer(state.available, current) or now - state.notified < NOTICE_EVERY:
         return None
+    failed = state.failed_version == state.available
+    if installer and not failed:
+        return None  # the automatic upgrade is pending or running
     state.notified = now
     save_state(cache, state)
+    if installer:
+        return (
+            f"miseenplace {state.available} is available, the automatic upgrade failed "
+            f"({state.failed_reason}): {' '.join(installer.command)}"
+        )
     return f"miseenplace {state.available} is available: {MANUAL_UPGRADE}"
 
 
@@ -204,27 +237,76 @@ def refresh_skills(cache: Path, src: Path | None = None) -> int:
 # ---- doing it ---------------------------------------------------------------------
 
 
-def apply_upgrade(installer: Installer) -> bool:
-    """Upgrade, then refresh skills from the NEW code in a fresh interpreter."""
+def upgrade_confirmed(version_output: str, latest: str) -> bool:
+    """True when `miseenplace --version` output ("miseenplace 0.4.0") is the latest or newer."""
+    installed, wanted = parse_version(version_output.strip().rpartition(" ")[2]), parse_version(
+        latest
+    )
+    return installed is not None and wanted is not None and installed >= wanted
+
+
+def installed_version_output() -> str:
+    """What the entry point installed next to this interpreter prints for --version."""
+    entry = Path(sys.executable).parent / "miseenplace"
+    if not entry.is_file():
+        raise MiseError(f"could not confirm the new version: {entry} not found")
+    try:
+        done = subprocess.run(
+            [str(entry), "--version"], capture_output=True, text=True, timeout=60, check=False
+        )
+    except subprocess.TimeoutExpired:
+        raise MiseError("could not confirm the new version: --version timed out") from None
+    return done.stdout
+
+
+def apply_upgrade(installer: Installer, latest: str) -> None:
+    """Upgrade, confirm the new version is installed, then refresh skills from the NEW code.
+
+    Raises MiseError with the reason when the installer failed or the new version is not there.
+    """
     try:
         done = subprocess.run(
             installer.command, capture_output=True, timeout=UPGRADE_TIMEOUT, check=False
         )
         if done.returncode != 0:
-            return False
+            raise MiseError(f"{installer.name} exited {done.returncode}")
+        output = installed_version_output()
+        if not upgrade_confirmed(output, latest):
+            raise MiseError(
+                f"{installer.name} ran but the installed version is still "
+                f"{output.strip() or 'unknown'}, not {latest}"
+            )
         subprocess.run(
             [sys.executable, "-m", "miseenplace", "skills", "--refresh"],
             capture_output=True,
             timeout=60,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return True
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise MiseError(f"{installer.name} could not run: {exc}") from exc
+
+
+def retry_blocked(state: State, version: str, now: float) -> bool:
+    """A failed upgrade of this exact version is not retried for a day; a newer one resets it."""
+    return state.failed_version == version and now - state.failed_at < RETRY_FAILED_AFTER
+
+
+def try_upgrade(cache: Path, installer: Installer, latest: str, now: float) -> None:
+    """apply_upgrade, remembering a failure (version, time, reason) or clearing it on success."""
+    try:
+        apply_upgrade(installer, latest)
+    except MiseError as exc:
+        state = load_state(cache)
+        state.failed_version, state.failed_at, state.failed_reason = latest, now, str(exc)[:200]
+        save_state(cache, state)
+        raise
+    state = load_state(cache)
+    state.failed_version, state.failed_at, state.failed_reason = "", 0.0, ""
+    save_state(cache, state)
 
 
 def update_now(cache: Path, installer: Installer | None, fetch: Callable[[], str | None]) -> str:
-    """`mep update`: check and upgrade now, say what happened."""
+    """`mep update`: check and upgrade now, say what happened. Ignores the retry backoff."""
     verdict = check(cache, time.time(), __version__, fetch, installer)
     if verdict.latest is None:
         raise MiseError("could not reach PyPI to look for a newer version")
@@ -232,19 +314,19 @@ def update_now(cache: Path, installer: Installer | None, fetch: Callable[[], str
         return f"miseenplace {__version__} is up to date"
     if verdict.action == "notify" or installer is None:
         return f"miseenplace {verdict.latest} is available: {MANUAL_UPGRADE}"
-    if not apply_upgrade(installer):
-        raise MiseError(f"upgrade failed; run: {' '.join(installer.command)}")
+    try:
+        try_upgrade(cache, installer, verdict.latest, time.time())
+    except MiseError as exc:
+        raise MiseError(f"upgrade failed: {exc}; run: {' '.join(installer.command)}") from exc
     return f"upgraded miseenplace {__version__} -> {verdict.latest}; it applies on the next run"
 
 
 def start_background_check(cache: Path, now: float) -> None:
-    """Mark the check as started (so parallel runs do not pile up) and detach the worker."""
+    """Detach the worker when a check is due; it takes the lock, so parallel runs do not pile up."""
     state = load_state(cache)
     if not is_due(state, now):
         return
-    state.checked = now
     try:
-        save_state(cache, state)
         worker = subprocess.Popen(
             [sys.executable, "-I", "-m", "miseenplace.update"],
             stdin=subprocess.DEVNULL,
@@ -257,13 +339,29 @@ def start_background_check(cache: Path, now: float) -> None:
         return
 
 
+def run_worker(
+    cache: Path, now: float, installer: Installer | None, fetch: Callable[[], str | None]
+) -> bool:
+    """Check and upgrade under an exclusive lock. False when it is held or no check is due."""
+    cache.mkdir(parents=True, exist_ok=True)
+    with open(cache / LOCK_NAME, "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return False
+        if not is_due(load_state(cache), now):
+            return False
+        verdict = check(cache, now, __version__, fetch, installer)
+        wanted = verdict.latest if verdict.action == "upgrade" and installer else None
+        if installer and wanted and not retry_blocked(load_state(cache), wanted, now):
+            try_upgrade(cache, installer, wanted, now)
+    return True
+
+
 def background() -> None:
     """The detached worker: check, and upgrade if we know how. Silent on every failure."""
-    cache, installer = cache_dir(), current_installer()
     try:
-        verdict = check(cache, time.time(), __version__, fetch_latest, installer)
-        if verdict.action == "upgrade" and installer:
-            apply_upgrade(installer)
+        run_worker(cache_dir(), time.time(), current_installer(), fetch_latest)
     except (OSError, MiseError):
         return
 
