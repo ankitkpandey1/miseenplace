@@ -120,6 +120,25 @@ Placeholders are `{name}` with letters, digits and `_`. Write `{{` and `}}` for 
 
 Steps, descriptions and tags that look like secrets are refused, as for facts. Writes take `--no-sync` and the data-root lock.
 
+## Recall
+
+One read at the start of a task: the lessons, facts and recipes most relevant to some text, inside a size budget. `mep recall "stop koyal and challenger"` prints
+
+```
+recipe stop-koyal: turn a dev box off via mm-dev-bot
+fact koyal-apiv2-port: 8260 (user 10-20, verified 3d)
+lesson when posting to Zulip -> do full PR URLs, not #42
+3 of 41 items, 212 chars
+```
+
+| Command | Purpose |
+|---|---|
+| `recall TEXT [--max-chars N] [--kind lesson\|fact\|recipe]` | rank and print; `--max-chars` defaults to 1200 and cuts whole lines, `--kind` searches one store |
+
+Only current lessons, current facts and approved recipes are searched; superseded, forgotten, proposed and retired ones never appear. Ranking is BM25 (k1 1.2, b 0.75) in pure Python, no embeddings, no network. Words are lowercase runs of letters and digits, so `8260`, `koyal` and `pr7101` match exactly. A name, key or tag word counts twice a body word (lesson when/do/not, fact value and source, recipe description and steps). A query word that no item contains is replaced by the closest known word by character-trigram similarity (at least 0.5): `challnger` finds `challenger`, `deploys` finds `deploy`. Synonyms are not guessed; add a tag. A recipe used recently or a fact verified recently scores up to 1.2x (the bonus halves every 30 days); a lesson gets 1% per vote, at most 10%.
+
+The footer is `N of M items, C chars`: N shown out of M searched. When the budget cut matches off it adds `, K left out`. No match prints `0 of M items` and exits 0. Every query is appended to `recall.jsonl` in the data root as `{ts, query, kind, returned}` (keys like `fact:koyal-apiv2-port`), so you can later check whether the item you needed came back. Like the other read commands, `recall` first refreshes the data root from its remote and falls back to the local copy, with a note on stderr, when offline. A blank query is refused (exit 2); a word containing a digit only matches exactly.
+
 ## Setup
 
 `init` creates the data root and `config.toml`; `demo` runs the guided tour.

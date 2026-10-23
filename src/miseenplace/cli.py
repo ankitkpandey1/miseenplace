@@ -15,6 +15,7 @@ from miseenplace import (
     lessons,
     lock,
     personal,
+    recall,
     recipes,
     reconcile,
     stats,
@@ -262,6 +263,14 @@ def add_personal_parsers(
     add_asks_parsers(sub)
     add_facts_parsers(sub)
     add_recipe_parsers(sub)
+    add_recall_parser(sub)
+
+
+def add_recall_parser(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    rc = sub.add_parser("recall", help="lessons, facts and recipes most relevant to some text")
+    rc.add_argument("text", type=nonblank, help="what the task is about")
+    rc.add_argument("--max-chars", type=positive, default=recall.DEFAULT_MAX_CHARS)
+    rc.add_argument("--kind", choices=("lesson", "fact", "recipe"), default="")
 
 
 def rating(text: str) -> int:
@@ -274,6 +283,12 @@ def positive(text: str) -> int:
     if not text.isdigit() or int(text) < 1:
         raise argparse.ArgumentTypeError(f"must be a whole number of at least 1, got {text!r}")
     return int(text)
+
+
+def nonblank(text: str) -> str:
+    if not text.strip():
+        raise argparse.ArgumentTypeError("give some words to look up")
+    return text
 
 
 def whole(text: str) -> int:
@@ -881,7 +896,7 @@ def change_recipes(st: Storage, a: argparse.Namespace) -> None:
 # ---- entry --------------------------------------------------------------------
 
 
-READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats", "asks")
+READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats", "asks", "recall")
 NO_AUTO_UPDATE = ("send", "update", "skills")
 
 
@@ -960,6 +975,8 @@ def run(a: argparse.Namespace) -> None:
         run_fact(store, a)
     elif a.cmd == "recipe":
         run_recipe(store, a)
+    elif a.cmd == "recall":
+        print(recall.recall(store.storage, a.text, a.max_chars, a.kind))
     else:
         run_journal(store, a)
 

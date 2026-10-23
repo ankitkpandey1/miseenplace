@@ -15,6 +15,12 @@ mep note-request "<the user's exact words>"
 
 Verbatim, never a summary: summaries drift, the user's words do not.
 
+```bash
+mep recall "<the user's words>"
+```
+
+Reads back the few lessons, facts and recipes that match this task, so you start from what is already known instead of loading every file.
+
 ## Which command
 
 | Situation | Command |
