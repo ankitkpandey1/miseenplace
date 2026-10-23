@@ -230,6 +230,18 @@ def pending_drafts(root: Path, source: str) -> list[Draft]:
     return Outbox(root, source, _cannot_deliver).pending()
 
 
+def all_drafts(root: Path) -> list[Draft]:
+    """Every readable draft of every source, sent or not, oldest first."""
+    outbox = Outbox(root, "", _cannot_deliver)
+    found: list[Draft] = []
+    for path in sorted(outbox.dir.glob("d*.json")):
+        try:
+            found.append(outbox._read(path))
+        except (ValueError, KeyError, TypeError):
+            continue  # not a draft we can read; `send` on its id reports it
+    return found
+
+
 def mark_draft(root: Path, source: str, draft_id: str, sent: bool) -> Draft:
     """Record the human's verdict on a draft whose delivery is unconfirmed."""
     return Outbox(root, source, _cannot_deliver).mark(draft_id, sent)

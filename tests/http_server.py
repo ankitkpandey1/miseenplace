@@ -26,6 +26,7 @@ class Seen:
     authorization: list[str | None] = field(default_factory=list)
     paths: list[str] = field(default_factory=list)  # every GET path seen
     messages: list[dict[str, object]] = field(default_factory=list)  # served by GET /messages
+    members: list[dict[str, object]] = field(default_factory=list)  # served by GET /users
     patches: list[tuple[str, dict[str, list[str]]]] = field(
         default_factory=list
     )  # PATCH path, body
@@ -63,7 +64,7 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
                     return
                 self.reply(200, json.dumps({"result": "success", "message": found[0]}).encode())
                 return
-            body = {"result": "success", "members": [], "messages": seen.messages}
+            body = {"result": "success", "members": seen.members, "messages": seen.messages}
             self.reply(200, json.dumps({**body, "found_oldest": True}).encode())
 
         def do_PATCH(self) -> None:

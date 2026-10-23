@@ -35,6 +35,7 @@ Reads back the few lessons, facts and recipes that match this task, so you start
 | User drops it | `mep drop ID` |
 | What first? | `mep top` |
 | Everything about one item or topic | `mep brief ID_OR_TOPIC` |
+| Find an old item or message | `mep search WORDS` (`--in item\|log\|chat\|...`, `--from NAME`, `--days N`) |
 | Which open items went stale (replied in chat, PR merged) | `mep reconcile` (dry run, one line per change); show it, then `mep reconcile --apply` only on the user's yes; add `--sync` to publish |
 | Stand-up | `mep standup --since yesterday` |
 
