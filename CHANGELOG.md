@@ -3,6 +3,7 @@
 ## Unreleased
 
 - `mep today`: a bare acknowledgement ("ok", "thanks 🙏", "np") after your reply no longer marks the thread `awaiting you`; it is `fyi`. An ack that answers your own question ("should I merge?" -> "sure") still waits on you.
+- `mep fact add|list|get|find|verify|check|forget`: facts with history in `facts.jsonl`. Adding an existing key supersedes the old value and keeps it (`get KEY --history` shows valid dates); `forget --why` records a retraction, so adding the same value again warns; secret-looking values are refused; the source defaults to `unknown` and a chat-sourced fact is marked `untrusted`; `check [--days N]` (default 30) lists facts not verified in N days.
 
 ## 0.3.0
 

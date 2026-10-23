@@ -87,6 +87,22 @@ Lessons from real corrections, kept in `lessons.jsonl` in the data root. One lin
 
 Writes take `--no-sync` and the data-root lock, so a scheduled `check` never overlaps an `add`. The first `add` or `vote` saves the current set as the baseline. A `--pattern` that matches the empty string is refused. A value starting with a dash needs `=`: `--not=-x`. A garbled line stops with its file and line number. Lessons without a pattern are never replayed; `check` counts them as unchecked.
 
+## Facts
+
+What is true about your world, kept in `facts.jsonl` in the data root with its history. One line each: `prod-runs-on: EC2, not EKS  (user 10-22, verified 1d)`. Nothing is overwritten or resolved automatically: only an explicit `add` or `forget` changes a fact.
+
+| Command | Purpose |
+|---|---|
+| `fact add KEY VALUE [--source S] [--tag T]...` | state a fact; an existing key is superseded and the old value kept with its dates. The source defaults to `unknown`; one starting with `chat`, `zulip`, `slack`, `dm` or `message` is shown as `untrusted` |
+| `fact list [--tag T] [--width W]` | current facts with source and days since last verified; `0 facts` when empty |
+| `fact get KEY [--history]` | one fact, or every value it had, newest first (`EKS  valid 2026-10-25 ->`) |
+| `fact find WORDS` | current facts containing every word in key, value, source or tags |
+| `fact verify KEY` | mark a fact as checked today |
+| `fact check [--days N]` | facts not verified in N days (default 30) |
+| `fact forget KEY [--why TEXT]` | close a fact and record the retraction; adding the same value later warns `retracted on <date>: <why>` (the fact is still stored) |
+
+Values that look like secrets (`token=...`, `password: ...`, `ghp_...`, private-key headers, long random strings) are refused: store where a secret lives, not the secret. Writes take `--no-sync` and the data-root lock.
+
 ## Setup
 
 `init` creates the data root and `config.toml`; `demo` runs the guided tour.

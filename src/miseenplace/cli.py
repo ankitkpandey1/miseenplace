@@ -8,7 +8,18 @@ from functools import partial
 from pathlib import Path
 from typing import cast
 
-from miseenplace import __version__, asks, lessons, lock, personal, reconcile, stats, today, update
+from miseenplace import (
+    __version__,
+    asks,
+    facts,
+    lessons,
+    lock,
+    personal,
+    reconcile,
+    stats,
+    today,
+    update,
+)
 from miseenplace.assets import skills_dir
 from miseenplace.chat import Message, Target
 from miseenplace.config import CONFIG_NAME, load_config, resolve_root
@@ -248,6 +259,7 @@ def add_personal_parsers(
         p.add_argument("--no-sync", action="store_true")
     add_lessons_parser(sub)
     add_asks_parsers(sub)
+    add_facts_parsers(sub)
 
 
 def rating(text: str) -> int:
@@ -259,6 +271,12 @@ def rating(text: str) -> int:
 def positive(text: str) -> int:
     if not text.isdigit() or int(text) < 1:
         raise argparse.ArgumentTypeError(f"must be a whole number of at least 1, got {text!r}")
+    return int(text)
+
+
+def whole(text: str) -> int:
+    if not text.isdigit():
+        raise argparse.ArgumentTypeError(f"must be a whole number, 0 or more, got {text!r}")
     return int(text)
 
 
@@ -309,6 +327,36 @@ def add_asks_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]")
     rp.add_argument("--days", type=positive, default=7)
     for p in (ak, an):
         p.add_argument("--no-sync", action="store_true")
+
+
+def add_facts_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    fp = sub.add_parser("fact", help="facts with history, source and forget: add, list, get, ...")
+    act = fp.add_subparsers(dest="fact_cmd", required=True, metavar="action")
+    ad = act.add_parser("add", help="state a fact; a changed value supersedes the old one")
+    ad.add_argument("key")
+    ad.add_argument("value")
+    ad.add_argument("--source", default="", help="where it comes from (default unknown)")
+    ad.add_argument("--tag", action="append", default=[], help="repeat for several tags")
+    li = act.add_parser("list", help="current facts, one line each")
+    li.add_argument("--tag")
+    li.add_argument("--width", type=positive, default=120)
+    ge = act.add_parser("get", help="one fact, or its history")
+    ge.add_argument("key")
+    ge.add_argument("--history", action="store_true")
+    ge.add_argument("--width", type=positive, default=120)
+    fi = act.add_parser("find", help="current facts containing all the words")
+    fi.add_argument("words", nargs="+")
+    vf = act.add_parser("verify", help="mark a fact as checked today")
+    vf.add_argument("key")
+    ck = act.add_parser("check", help="facts not verified in N days")
+    ck.add_argument("--days", type=whole, default=facts.STALE_DAYS)
+    ck.add_argument("--width", type=positive, default=120)
+    fg = act.add_parser("forget", help="close a fact and record why")
+    fg.add_argument("key")
+    fg.add_argument("--why", default="")
+    for p in (ad, vf, fg):
+        p.add_argument("--no-sync", action="store_true")
+    fi.add_argument("--width", type=positive, default=120)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -713,6 +761,43 @@ def run_asks(store: Store, a: argparse.Namespace) -> None:
         print(asks.render(store.storage, a.width))
 
 
+def run_fact(store: Store, a: argparse.Namespace) -> None:
+    cmd = a.fact_cmd
+    if cmd in ("add", "verify", "forget"):
+        with lock.exclusive(store.root):
+            change_facts(store.storage, a)
+        if not a.no_sync:
+            store.sync(f"fact {cmd}")
+        return
+    found = facts.read_facts(store.storage)
+    now = facts.today()
+    if cmd == "get" and a.history:
+        print("\n".join(f.history_line(a.width) for f in facts.history(found, a.key)))
+        return
+    if cmd == "get":
+        shown = [facts.get_current(found, a.key)]
+    elif cmd == "find":
+        shown = facts.search(found, " ".join(a.words))
+    elif cmd == "check":
+        shown = facts.stale(found, a.days)
+    else:
+        shown = [f for f in facts.current(found) if not a.tag or a.tag in f.tags]
+    print("\n".join(f.line(a.width, now) for f in shown) or "0 facts")
+
+
+def change_facts(st: Storage, a: argparse.Namespace) -> None:
+    if a.fact_cmd == "add":
+        done, warning = facts.add_fact(st, a.key, a.value, a.source, tuple(a.tag))
+        if warning:
+            print(f"miseenplace: warning: {warning}", file=sys.stderr)
+        print(done)
+    elif a.fact_cmd == "verify":
+        print(f"{facts.verify(st, a.key).key} verified")
+    else:
+        facts.forget(st, a.key, a.why)
+        print(f"{a.key} forgotten")
+
+
 # ---- entry --------------------------------------------------------------------
 
 
@@ -791,6 +876,8 @@ def run(a: argparse.Namespace) -> None:
         run_ask(store, a)
     elif a.cmd == "asks":
         run_asks(store, a)
+    elif a.cmd == "fact":
+        run_fact(store, a)
     else:
         run_journal(store, a)
 
