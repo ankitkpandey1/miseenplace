@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `mep edit` works on a message this account sent to a channel it is not subscribed to (a bot posting status). Zulip refuses to read such a message ("Invalid message(s)") but lets its sender edit it, so `edit` used to fail with `no message ID`. An unreadable message now gets an edit draft, and Zulip's answer comes at `send` (`no message ID`, `edit window expired`, ...). A message that exists and is someone else's is still refused at `edit`.
 - Stored drafts and inbox items written by a newer version load in an older one: unknown keys are ignored instead of crashing `mep watch` with `TypeError ... unexpected keyword argument 'edit_of'`. An edit draft read by a version that does not know `edit_of` still cannot be sent: its hash covers `edit_of`, so `send` refuses it as modified.
 - `mep update` says "PyPI has not caught up with X yet; try again in a few minutes" when the installer exits cleanly but still sees the old version (index/mirror lag), instead of "upgrade failed". After 6 hours of that, or when the installer itself fails, it still says "upgrade failed".
 

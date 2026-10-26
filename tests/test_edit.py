@@ -56,11 +56,28 @@ def test_editing_someone_elses_message_is_refused_and_stores_no_draft(tmp_path: 
     assert seen.patches == [] and pending_drafts(tmp_path, "zulip") == []
 
 
-def test_editing_an_id_that_does_not_exist_says_so(tmp_path: Path) -> None:
-    seen = Seen(messages=[row(7, ME)])
-    with serve(seen) as base, pytest.raises(MiseError, match="no message 99"):
-        source(tmp_path, base).edit("99", "x")
-    assert pending_drafts(tmp_path, "zulip") == []
+def test_a_message_this_account_cannot_read_can_still_be_edited(tmp_path: Path) -> None:
+    # a bot posts to a channel it is not subscribed to: GET says "Invalid message(s)", PATCH works
+    seen = Seen(messages=[row(7, ME)], unreadable=[7])
+    with serve(seen) as base:
+        src = source(tmp_path, base)
+        d = src.edit("7", "status: tests green")
+        assert seen.patches == [] and d.target.edit_of == "7"
+        assert "EDIT of message 7" in d.preview()
+        assert src.send(d.id) == "7"
+    assert seen.patches == [("/api/v1/messages/7", {"content": ["status: tests green"]})]
+
+
+def test_an_unreadable_id_zulip_will_not_edit_fails_at_send_with_its_reason(
+    tmp_path: Path,
+) -> None:
+    seen = Seen()
+    with serve(seen) as base:
+        src = source(tmp_path, base)
+        d = src.edit("99", "x")
+        with pytest.raises(MiseError, match="no message 99"):
+            src.send(d.id)
+    assert src.outbox.get(d.id).status == "drafted"
 
 
 def test_an_expired_edit_window_says_so_at_send(tmp_path: Path) -> None:

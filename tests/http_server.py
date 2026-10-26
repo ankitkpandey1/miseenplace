@@ -26,6 +26,7 @@ class Seen:
     authorization: list[str | None] = field(default_factory=list)
     paths: list[str] = field(default_factory=list)  # every GET path seen
     messages: list[dict[str, object]] = field(default_factory=list)  # served by GET /messages
+    unreadable: list[int] = field(default_factory=list)  # GET refuses these, PATCH accepts them
     patches: list[tuple[str, dict[str, list[str]]]] = field(
         default_factory=list
     )  # PATCH path, body
@@ -57,7 +58,8 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
             one = re.fullmatch(r"/api/v1/messages/(\d+)", self.path.split("?")[0])
             if one:
                 found = [m for m in seen.messages if m["id"] == int(one[1])]
-                if not found:  # the shape Zulip answers with for an id that does not exist
+                # the shape Zulip answers with for an id that does not exist or is not readable
+                if not found or int(one[1]) in seen.unreadable:
                     err = {"result": "error", "msg": "Invalid message(s)", "code": "BAD_REQUEST"}
                     self.reply(400, json.dumps(err).encode())
                     return
@@ -74,8 +76,15 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
                 msg = "The time limit for editing this message has passed"
                 err = {"result": "error", "msg": msg, "code": "BAD_REQUEST"}
                 self.reply(400, json.dumps(err).encode())
+            elif not self.editable():
+                err = {"result": "error", "msg": "Invalid message(s)", "code": "BAD_REQUEST"}
+                self.reply(400, json.dumps(err).encode())
             else:
                 self.reply(200, b'{"result":"success","msg":""}')
+
+        def editable(self) -> bool:
+            known = [int(m["id"]) for m in seen.messages] + seen.unreadable  # type: ignore[call-overload]
+            return int(self.path.rsplit("/", 1)[1]) in known
 
         def do_POST(self) -> None:
             seen.authorization.append(self.headers.get("Authorization"))
