@@ -169,7 +169,10 @@ def edit_failure(message_id: str, detail: str) -> str:
     if "permission" in low:
         return f"message {message_id} is not yours"
     if "invalid message" in low:
-        return f"no message {message_id}"
+        return (
+            f"no message {message_id}, or this account cannot access it "
+            "(not subscribed to its channel?)"
+        )
     return f"zulip refused the edit of message {message_id}: {detail or 'no reason given'}"
 
 
@@ -456,12 +459,7 @@ class ZulipSource:
     # ---- writing (always through the consent gate) ----
 
     def edit(self, message_id: str, text: str) -> Draft:
-        """Store an edit draft for `send`; refuse now when the message is readable and not mine.
-
-        Zulip answers "Invalid message(s)" to a read of a message in a channel this account
-        is not subscribed to (a bot that posts to one), yet it lets the sender edit it. So an
-        unreadable message gets a draft anyway, and Zulip decides at `send`.
-        """
+        """Check read-only that the message is mine, then store an edit draft for `send`."""
         if not message_id.isdigit():
             raise MiseError(f"bad zulip message id {message_id!r}")
         try:
@@ -469,8 +467,7 @@ class ZulipSource:
         except SourceError as e:
             if "invalid message" not in e.detail.lower():  # timeout, 5xx, 401, network: as is
                 raise
-            target = Target("", label=f"message {message_id}, not readable by this account")
-            return self.outbox.draft(replace(target, edit_of=message_id), text)
+            raise MiseError(edit_failure(message_id, e.detail)) from None
         if not m.mine or m.target is None:
             raise MiseError(f"message {message_id} is not yours")
         return self.outbox.draft(replace(m.target, label=m.where, edit_of=message_id), text)
