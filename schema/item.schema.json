@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": [
     "id", "title", "kind", "state", "eta", "who", "refs", "notes", "created", "updated",
-    "topic", "context", "next", "blocker", "decisions", "think", "priority", "spent", "tags"
+    "topic", "context", "next", "blocker", "decisions", "think", "priority", "spent", "tags", "sessions"
   ],
   "properties": {
     "id": { "type": "integer", "minimum": 1, "description": "Stable, never reused." },
@@ -44,6 +44,11 @@
     "think": { "type": ["string", "null"], "minLength": 1, "description": "Slug of a longer-form notebook for big work." },
     "priority": { "enum": ["p0", "p1", "p2", "p3", null], "description": "p0 is highest; null is unprioritised and sorts last." },
     "spent": { "type": "integer", "minimum": 0, "description": "Minutes, accumulated." },
-    "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+    "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "sessions": {
+      "type": "array",
+      "description": "Claude Code sessions working on the item, oldest first, as `uuid@/absolute/cwd`.",
+      "items": { "type": "string", "pattern": "^[0-9a-f-]{36}@/" }
+    }
   }
 }

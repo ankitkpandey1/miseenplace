@@ -42,7 +42,10 @@ from miseenplace.model import (
     Item,
     MiseError,
     eta_key,
+    find,
+    find_by_ref,
     priority_key,
+    resume_commands,
     select,
     top,
 )
@@ -108,6 +111,13 @@ def add_work_args(s: argparse.ArgumentParser) -> None:
         help="append a decision (repeatable); decisions are never rewritten",
     )
     s.add_argument("--tag", dest="tags", action="append", help="add a tag (repeatable)")
+    s.add_argument(
+        "--session",
+        dest="sessions",
+        action="append",
+        metavar="UUID[@CWD]",
+        help="attach a Claude Code session (cwd defaults to here; repeatable); '' clears all",
+    )
     s.add_argument("--untag", dest="untags", action="append", help="remove a tag (repeatable)")
 
 
@@ -162,6 +172,8 @@ def add_journal_parsers(
     tp.add_argument("-n", type=int, default=5, help="how many (default 5)")
     br = sub.add_parser("brief", help="full view of one item, or every open item in a topic")
     br.add_argument("key", help="item id, topic, or unique title substring")
+    rs = sub.add_parser("resume", help="print the command that resumes an item's Claude session")
+    rs.add_argument("item", help="id, unique title substring, PR/issue url or repo#N")
     rc = sub.add_parser("reconcile", help="propose state changes for open items from their sources")
     rc.add_argument("--apply", action="store_true", help="make the changes (default: print only)")
     rc.add_argument("--sync", action="store_true", help="with --apply: run sync afterwards")
@@ -443,7 +455,7 @@ def build_parser() -> argparse.ArgumentParser:
 def work_options(a: argparse.Namespace) -> Extras:
     keys = (
         "topic", "context", "next", "blocker", "think", "priority", "spent",
-        "decisions", "tags", "untags",
+        "decisions", "tags", "untags", "sessions",
     )  # fmt: skip
     return cast(Extras, {k: v for k in keys if (v := getattr(a, k, None)) is not None})
 
@@ -452,6 +464,15 @@ def run_list(store: Store, a: argparse.Namespace) -> None:
     rows = select(store.load()[1], a.all, a.topic, a.tag, a.priority, a.kind, a.who)
     for i in sorted(rows, key=priority_key if a.sort == "priority" else eta_key):
         print(f"[{i['kind']}] " + line(i))
+
+
+def run_resume(store: Store, a: argparse.Namespace) -> None:
+    items = store.load()[1]
+    item = find_by_ref(items, a.item) or find(items, a.item)
+    commands = resume_commands(item)
+    if not commands:
+        raise MiseError(f"#{item['id']} has no session; attach one with `set --session UUID`")
+    print("\n".join(commands))
 
 
 def run_write(store: Store, a: argparse.Namespace) -> None:
@@ -493,6 +514,8 @@ def run_journal(store: Store, a: argparse.Namespace) -> None:
             print(line(i))
     elif a.cmd == "brief":
         print(brief(store.load()[1], a.key))
+    elif a.cmd == "resume":
+        run_resume(store, a)
     elif a.cmd == "sync":
         store.sync()
     elif a.cmd == "init":
@@ -926,7 +949,7 @@ def change_recipes(st: Storage, a: argparse.Namespace) -> None:
 # ---- entry --------------------------------------------------------------------
 
 
-READ_CMDS = ("list", "top", "brief", "standup", "reconcile", "stats", "asks", "recall")
+READ_CMDS = ("list", "top", "brief", "resume", "standup", "reconcile", "stats", "asks", "recall")
 NO_AUTO_UPDATE = ("send", "update", "skills")
 
 

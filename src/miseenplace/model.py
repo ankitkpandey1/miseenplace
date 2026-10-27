@@ -1,7 +1,10 @@
 """Item and log-entry model: constants, types, parsing, validation and queries. No I/O."""
 
 import datetime as dt
+import os
 import re
+import shlex
+import uuid
 from typing import NotRequired, TypedDict, cast
 
 STATES = ("todo", "doing", "waiting", "done", "dropped")
@@ -29,8 +32,10 @@ ITEM_FIELDS: dict[str, type | tuple[type, ...]] = {
     "priority": OPT_STR,
     "spent": int,
     "tags": list,
+    "sessions": list,
 }
-LEGACY_FIELDS = set(ITEM_FIELDS) - set(TEXT_FIELDS) - {"decisions", "priority", "spent", "tags"}
+PRE_SESSION_FIELDS = set(ITEM_FIELDS) - {"sessions"}
+LEGACY_FIELDS = PRE_SESSION_FIELDS - set(TEXT_FIELDS) - {"decisions", "priority", "spent", "tags"}
 DIARY_FIELDS = {"text", "topic", "tags", "spent", "refs"}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
@@ -62,6 +67,7 @@ class Item(TypedDict):
     priority: str | None
     spent: int
     tags: list[str]
+    sessions: list[str]
 
 
 class Entry(TypedDict):
@@ -86,6 +92,7 @@ class Extras(TypedDict):
     decisions: NotRequired[list[str]]
     tags: NotRequired[list[str]]
     untags: NotRequired[list[str]]
+    sessions: NotRequired[list[str]]
 
 
 class MiseError(Exception):
@@ -155,16 +162,53 @@ def parse_decision(s: str) -> Decision:
     return {"what": what.strip(), "why": why.strip()}
 
 
+def parse_session(s: str) -> str:
+    """`UUID[@CWD]` -> `UUID@CWD` (lowercase uuid, absolute cwd, default the current dir)."""
+    sid, _, cwd = s.strip().partition("@")
+    try:
+        sid = str(uuid.UUID(sid))
+    except ValueError:
+        raise MiseError(
+            f"bad session {s!r}; use UUID or UUID@CWD (a Claude Code session id)"
+        ) from None
+    path = os.path.abspath(os.path.expanduser(cwd)) if cwd else os.getcwd()
+    if not os.path.isdir(path):
+        raise MiseError(f"bad session {s!r}: {path} is not a directory")
+    return f"{sid}@{path}"
+
+
+def merge_sessions(old: list[str], given: list[str]) -> list[str]:
+    """Add sessions (a known uuid moves to the end with its new cwd); '' clears them all."""
+    out = list(old)
+    for g in given:
+        if not g.strip():
+            out = []
+            continue
+        new = parse_session(g)
+        out = [x for x in out if x.partition("@")[0] != new.partition("@")[0]] + [new]
+    return out
+
+
+def resume_commands(item: Item) -> list[str]:
+    """`cd CWD && claude --resume UUID`, newest session first."""
+    return [
+        f"cd {shlex.quote(cwd)} && claude --resume {sid}"
+        for sid, _, cwd in (x.partition("@") for x in reversed(item["sessions"]))
+    ]
+
+
 def with_defaults(item: dict[str, object]) -> dict[str, object]:
     """Fill the work fields an item written before they existed lacks."""
     defaults: dict[str, object] = dict.fromkeys(TEXT_FIELDS)
-    defaults |= {"decisions": [], "priority": None, "spent": 0, "tags": []}
+    defaults |= {"decisions": [], "priority": None, "spent": 0, "tags": [], "sessions": []}
     return defaults | item
 
 
 def added_item(changes: dict[str, object]) -> dict[str, object]:
     """The item an `add` entry creates; legacy adds (10 fields) get defaults."""
-    return with_defaults(changes) if set(changes) == LEGACY_FIELDS else changes
+    return (
+        with_defaults(changes) if set(changes) in (LEGACY_FIELDS, PRE_SESSION_FIELDS) else changes
+    )
 
 
 # ---- validation (mirrors schema/*.schema.json; stdlib only) ---------------------
@@ -182,6 +226,14 @@ def check_tags(tags: object, where: str) -> None:
         raise MiseError(f"{where}: tags must be a list of non-empty strings")
     if len(set(tags)) != len(tags):
         raise MiseError(f"{where}: duplicate tags in {tags}")
+
+
+def check_sessions(sessions: object, where: str) -> None:
+    ok = isinstance(sessions, list) and all(
+        isinstance(x, str) and SESSION_RE.match(x) and os.path.isabs(x[37:]) for x in sessions
+    )
+    if not ok:
+        raise MiseError(f"{where}: sessions must be a list of 'uuid@/absolute/cwd' strings")
 
 
 def check_minutes(minutes: object, where: str) -> None:
@@ -219,6 +271,7 @@ def validate_work_fields(item: Item) -> None:
         raise MiseError(f"{where}: bad priority {item['priority']!r}; use {'|'.join(PRIORITIES)}")
     check_minutes(item["spent"], where)
     check_tags(item["tags"], where)
+    check_sessions(item["sessions"], where)
     for d in item["decisions"]:
         ok = isinstance(d, dict) and set(d) == {"what", "why"}
         if not ok or not all(isinstance(v, str) and v.strip() for v in d.values()):
@@ -281,6 +334,44 @@ def find(items: list[Item], key: str) -> Item:
         hits = [i for i in items if i["state"] not in CLOSED and key.lower() in i["title"].lower()]
     if len(hits) != 1:
         raise MiseError(f"{len(hits)} items match {key!r}; pass the id (see `list --all`)")
+    return hits[0]
+
+
+SESSION_RE = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}@")
+REPO_REF_RE = re.compile(r"^(?:([\w.-]+)/)?([\w.-]+)#(\d+)$")
+PR_URL_RE = re.compile(r"^https?://[^/]+/([^/]+)/([^/]+)/(?:pull|issues)/(\d+)(?:[/?#]|$)", re.I)
+
+
+def find_by_ref(items: list[Item], key: str) -> Item | None:
+    """The item whose ref is the url `key` (any PR/issue page url), or the PR/issue `repo#N` /
+    `owner/repo#N`; case-insensitive."""
+    if m := REPO_REF_RE.match(key):
+        owner, repo, num = (m[1] or "").lower(), m[2].lower(), m[3]
+    elif m := PR_URL_RE.match(key):
+        owner, repo, num = m[1].lower(), m[2].lower(), m[3]
+    elif key.startswith("http"):
+        hits = [
+            i
+            for i in items
+            if key.rstrip("/").lower() in (r.rstrip("/").lower() for r in i["refs"])
+        ]
+        return unique_ref_hit(hits, key)
+    else:
+        return None
+    hits = [i for i in items if any(ref_is(r, owner, repo, num) for r in i["refs"])]
+    return unique_ref_hit(hits, key)
+
+
+def ref_is(ref: str, owner: str, repo: str, num: str) -> bool:
+    m = PR_URL_RE.match(ref)
+    if not m:
+        return False
+    return owner in ("", m[1].lower()) and (m[2].lower(), m[3]) == (repo, num)
+
+
+def unique_ref_hit(hits: list[Item], key: str) -> Item:
+    if len(hits) != 1:
+        raise MiseError(f"{len(hits)} items have a ref matching {key!r}; pass the id")
     return hits[0]
 
 

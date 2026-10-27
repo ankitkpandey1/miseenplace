@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 from importlib.metadata import entry_points
@@ -10,12 +11,12 @@ from pathlib import Path
 import pytest
 
 from miseenplace.tour import seed
-from tests.conftest import REPO, run_cli
+from tests.conftest import LEGACY_ADD, REPO, entry_line, run_cli
 
 ALL_COMMANDS = (
     "add", "set", "done", "drop", "log", "list", "top", "brief", "sync", "standup", "init",
     "new", "thread", "digest", "today", "draft", "drafts", "send", "users", "demo", "skills",
-    "style", "update", "lessons",
+    "style", "update", "lessons", "resume",
 )  # fmt: skip
 
 
@@ -193,3 +194,123 @@ def test_watch_and_inbox_use_separate_cursors(demo_root: Path) -> None:
     # the agent's own cursor starts at now, and the watcher's items wait in the shared queue
     seen = run_cli(demo_root, "--source", "demo", "inbox", "--cursor", "agent").out
     assert [ln.split(" · ")[0] for ln in seen.splitlines()] == ["3", "4", "5"]
+
+
+SID, SID2 = "0b9d1f4e-3a52-4c1e-9d7a-5f2c8e1a6b30", "7c1e2a90-84d3-4b6f-a1c5-d9e0f3b24a71"
+
+
+def resume_line(cwd: Path | str, sid: str) -> str:
+    return f"cd {shlex.quote(str(cwd))} && claude --resume {sid}\n"
+
+
+def dirs(tmp_path: Path, *names: str) -> list[Path]:
+    made = [tmp_path / n for n in names]
+    for d in made:
+        d.mkdir()
+    return made
+
+
+def test_session_set_resume_and_clear(tmp_path: Path) -> None:
+    tool, other = dirs(tmp_path, "tool", "other")
+    root = tmp_path / "j"
+    cli(root, "add", "ship parser", "--ref", "https://github.com/acme/tool/pull/42")
+    cli(root, "add", "other thing")
+    cli(root, "set", "parser", "--session", f"{SID}@{tool}")
+    cli(root, "set", "1", "--session", f"{SID2}@{other}")
+    want = resume_line(other, SID2) + resume_line(tool, SID)
+    for key in ("1", "parser", "tool#42", "acme/tool#42", "ACME/Tool#42"):
+        assert cli(root, "resume", key) == want
+    assert f"session: cd {tool}" in cli(root, "brief", "1")
+    assert "[session x2]" in cli(root, "list")
+    cli(root, "set", "1", "--session", "")
+    assert "no session" in cli(root, "resume", "1", ok=False)
+    assert "session" not in cli(root, "list")
+
+
+def test_session_defaults_to_current_dir_and_rejects_bad_input(tmp_path: Path) -> None:
+    cli(tmp_path, "add", "x", "--session", SID.upper())
+    assert cli(tmp_path, "resume", "x") == resume_line(Path.cwd(), SID)
+    assert "bad session" in cli(tmp_path, "set", "x", "--session", "nope", ok=False)
+    gone = f"{SID2}@{tmp_path / 'missing'}"
+    assert "not a directory" in cli(tmp_path, "set", "x", "--session", gone, ok=False)
+    assert "0 items have a ref" in cli(tmp_path, "resume", "tool#9", ok=False)
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    ["", "/", "/files", "/commits/abc123", "#issuecomment-99", "?diff=split", "/files?w=1"],
+)
+def test_resume_finds_a_pr_by_any_of_its_page_urls(tmp_path: Path, suffix: str) -> None:
+    (here,) = dirs(tmp_path, "w")
+    root = tmp_path / "j"
+    cli(
+        root,
+        "add",
+        "pr",
+        "--ref",
+        "https://github.com/Acme/Tool/pull/42",
+        "--session",
+        f"{SID}@{here}",
+    )
+    assert cli(root, "resume", f"https://github.com/acme/tool/pull/42{suffix}") == resume_line(
+        here, SID
+    )
+
+
+def test_ref_lookup_is_exact_on_number_and_owner(tmp_path: Path) -> None:
+    a, b, c = dirs(tmp_path, "a", "b", "c")
+    root = tmp_path / "j"
+    for title, ref, d, sid in (
+        ("one", "https://github.com/acme/tool/pull/12", a, SID),
+        ("two", "https://github.com/acme/tool/pull/123", b, SID2),
+        (
+            "three",
+            "https://github.com/other/tool/pull/12",
+            c,
+            "11111111-2222-4333-8444-555555555555",
+        ),
+    ):
+        cli(root, "add", title, "--ref", ref, "--session", f"{sid}@{d}")
+    assert cli(root, "resume", "acme/tool#123") == resume_line(b, SID2)
+    assert cli(root, "resume", "other/tool#12").endswith("555555555555\n")
+    assert cli(root, "resume", "acme/tool#12") == resume_line(a, SID)
+    assert "2 items have a ref" in cli(root, "resume", "tool#12", ok=False)
+
+
+def test_cwd_with_space_and_quote_round_trips_through_the_shell(tmp_path: Path) -> None:
+    (odd,) = dirs(tmp_path, "it's a dir")
+    cli(tmp_path, "add", "x", "--session", f"{SID}@{odd}")
+    cmd = cli(tmp_path, "resume", "x").strip()
+    assert shlex.split(cmd) == ["cd", str(odd), "&&", "claude", "--resume", SID]
+
+
+def test_a_repeated_uuid_moves_to_newest_with_its_new_cwd(tmp_path: Path) -> None:
+    a, b = dirs(tmp_path, "a", "b")
+    cli(tmp_path, "add", "x", "--session", f"{SID}@{a}")
+    cli(tmp_path, "set", "x", "--session", f"{SID2}@{a}")
+    cli(tmp_path, "set", "x", "--session", f"{SID}@{b}")
+    assert cli(tmp_path, "resume", "x") == resume_line(b, SID) + resume_line(a, SID2)
+
+
+def test_empty_session_clears_what_came_before_it_in_the_same_call(tmp_path: Path) -> None:
+    a, b = dirs(tmp_path, "a", "b")
+    cli(tmp_path, "add", "x", "--session", f"{SID}@{a}")
+    cli(tmp_path, "set", "x", "--session", "", "--session", f"{SID2}@{b}")  # clear, then add
+    assert cli(tmp_path, "resume", "x") == resume_line(b, SID2)
+    cli(tmp_path, "set", "x", "--session", f"{SID}@{a}", "--session", "")  # add, then clear
+    assert "no session" in cli(tmp_path, "resume", "x", ok=False)
+
+
+def test_a_journal_written_before_sessions_loads_and_takes_a_session(tmp_path: Path) -> None:
+    (here,) = dirs(tmp_path, "w")
+    pre_session = LEGACY_ADD | {
+        "id": 2, "title": "newer item", "topic": None, "context": None, "next": None,
+        "blocker": None, "decisions": [], "think": None, "priority": None, "spent": 0, "tags": [],
+    }  # fmt: skip
+    log = tmp_path / "data" / "audit_log.jsonl"
+    log.parent.mkdir()
+    log.write_text(entry_line(1, "add", 1, LEGACY_ADD) + entry_line(2, "add", 2, pre_session))
+    assert "old item" in cli(tmp_path, "list") and "newer item" in cli(tmp_path, "list")
+    for key in ("old item", "newer item"):
+        cli(tmp_path, "set", key, "--session", f"{SID}@{here}")
+        assert cli(tmp_path, "resume", key) == resume_line(here, SID)

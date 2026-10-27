@@ -12,13 +12,14 @@ Exit codes: 0 ok, 1 usage or journal error, 2 source error (network, auth). Erro
 
 | Command | Purpose |
 |---|---|
-| `add TITLE [--kind mine\|waiting\|reminder] [--who] [--eta] [--ref] [--topic] [--context] [--next] [--priority]` | new item |
-| `set ID [--state] [--note] [--spent] [--tag] [--decision]` | change an item |
+| `add TITLE [--kind mine\|waiting\|reminder] [--who] [--eta] [--ref] [--topic] [--context] [--next] [--priority] [--session]` | new item |
+| `set ID [--state] [--note] [--spent] [--tag] [--decision] [--session]` | change an item |
 | `done ID [--note]` / `drop ID` | close |
 | `log TEXT [--topic] [--spent]` | diary entry |
-| `list [--topic] [--tag] [--sort]` | list items |
+| `list [--topic] [--tag] [--sort]` | list items; `[session xN]` marks items with sessions |
 | `top [-n N]` | what first |
-| `brief ID_OR_TOPIC` | full view |
+| `brief ID_OR_TOPIC` | full view; a `session:` line per attached Claude Code session |
+| `resume ITEM` | print `cd CWD && claude --resume UUID`, one line per session, newest first. ITEM is an id, a unique title substring, a PR/issue url or `repo#N` (`owner/repo#N`) matched against the item's refs. Exit 1 with a reason when the item has no session or does not match one item |
 | `standup [--since yesterday]` | Did / Next / Waiting on |
 | `reconcile [--apply] [--sync]` | check every open item against its sources and print one line per change, `#N current -> proposed: reason` (`0 changes` when none). Chat refs (message links, the `[inbox:src:N]` mark): you posted after the ref and nobody answered -> `waiting`; they answered after your last message -> `todo` ("new reply"). GitHub PR refs: MERGED or CLOSED -> `done`, via `gh` when installed (otherwise one skip note on stderr). Dry run by default; `--apply` writes through the same store call as `set`/`done` and adds the note `reconcile <date>: <reason>`; `--sync` (with `--apply`) runs `sync` after |
 | `stats [--days N] [--delta] [--record [--focus 1-5] [--stress 1-5]]` | how long people wait on you, 7 lines. **Reply latency** (median; p90 only from 10 answered): a message that @-mentions you (group mentions like `@all` count too) or is a DM, to your next message in that thread; pings with no message of yours after them are counted as `N unanswered`. **Review turnaround**: the first review request made of you personally (team-only requests are skipped) to your first review after it, via `gh`; at most the newest 500 PRs, with a stderr note when more matched. **Review queue**: open PRs waiting on you now (asked twice when 0, since GitHub search sometimes answers 0 wrongly). Missing or failing `gh`: those rows read `n/a` and one note goes to stderr. **Closed/day**: from the journal log, an item counts once, when first set to done. Pings answered/day; focus and stress are the means of the CSV rows in the window. No data prints `n/a`, never a guess. `--delta` (takes no `--days`; `pings answered/day` is only a proxy for interruptions: it counts pings you answered, not every interruption, and is not a measure of them): the last 7 days against the 14 before, `1m vs 10m  -90%  n=3/5` per row, n being the samples on each side (lower is better for waits and stress). `--record` writes today's row of `stats.csv` (`date,focus,stress,queue`) in the data root; a rerun replaces that day's row, keeps a rating you do not give again, and keeps an earlier non-zero queue when the new one is 0. A bad CSV row (non-numeric rating, bad date, short row) is skipped with a stderr note `stats.csv:LINE: skipped, why` and is dropped when `--record` rewrites the file; a header without `date,focus,stress,queue` is an error. Takes the data-root lock; `--no-sync` skips `sync` |

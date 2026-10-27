@@ -30,6 +30,7 @@ from miseenplace.model import (
     MiseError,
     added_item,
     find,
+    merge_sessions,
     now,
     parse_decision,
     parse_eta,
@@ -69,6 +70,7 @@ def merge_extras(item: Item, extra: Extras) -> None:
     item["decisions"] = item["decisions"] + [parse_decision(d) for d in extra.get("decisions", [])]
     tags = dict.fromkeys(item["tags"] + extra.get("tags", []))
     item["tags"] = [t for t in tags if t not in extra.get("untags", [])]
+    item["sessions"] = merge_sessions(item["sessions"], extra.get("sessions", []))
 
 
 class Store:

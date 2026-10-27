@@ -15,6 +15,7 @@ from miseenplace.model import (
     now,
     parse_eta,
     priority_key,
+    resume_commands,
     select,
 )
 
@@ -32,6 +33,8 @@ def line(i: Item) -> str:
     if i["who"]:
         parts.append(i["who"])
     parts += [f"[ref]({r})" for r in i["refs"]]
+    if i["sessions"]:
+        parts.append(f"[session x{len(i['sessions'])}]")
     if i["notes"]:
         parts.append(f"_{i['notes'][-1]}_")
     return "- " + " · ".join(parts)
@@ -100,6 +103,7 @@ def brief_item(i: Item) -> str:
     ]
     out = [f"#{i['id']} {i['title']}" + (f"  [{i['topic']}]" if i["topic"] else "")]
     out += [f"  {label}: {value}" for label, value in rows if value]
+    out += [f"  session: {cmd}" for cmd in resume_commands(i)]
     if i["decisions"]:
         out += [
             "  decisions:",
