@@ -332,3 +332,22 @@ def test_log_returns_the_entry_it_appended(store: Store) -> None:
 
 def test_open_storage_still_works_for_the_default(tmp_path: Path) -> None:
     assert open_storage(tmp_path, {}).read_entries() == []
+
+
+def test_a_change_both_machines_made_is_not_appended_twice(tmp_path: Path, bare: Path) -> None:
+    laptop, desktop = machine(tmp_path, "laptop", bare), machine(tmp_path, "desktop", bare)
+    laptop.add("shared")
+    laptop.sync("add")
+    desktop.refresh()
+    desktop.add("D only")  # a local commit the remote lacks, so the histories diverge
+    laptop.update("1", "done")
+    same = laptop.read_log()[-1]
+    laptop.sync("done")
+    desktop.storage.append({**same, "seq": 3})  # the desktop made the identical change too
+    desktop.refresh()  # merge: the shared entry is in both the remote and the local tail
+    desktop.sync("merged")
+    laptop.refresh()
+    for store in (laptop, desktop):
+        log = store.read_log()
+        assert [(e["op"], e["id"]) for e in log] == [("add", 1), ("done", 1), ("add", 2)]
+        assert [e["seq"] for e in log] == [1, 2, 3]
