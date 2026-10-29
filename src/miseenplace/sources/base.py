@@ -102,6 +102,15 @@ class Editable(Protocol):
 
 
 @runtime_checkable
+class Deletable(Protocol):
+    """Optional: delete a message I sent (`mep delete`)."""
+
+    name: str
+
+    def delete(self, message_id: str) -> str: ...
+
+
+@runtime_checkable
 class Lookup(Protocol):
     """Optional: find one message by id (reconcile follows a journal ref to its thread)."""
 

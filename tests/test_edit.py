@@ -268,3 +268,13 @@ def test_an_inaccessible_message_says_the_account_may_not_be_subscribed(tmp_path
     with serve(seen) as base, pytest.raises(MiseError, match="not subscribed to its channel"):
         source(tmp_path, base).edit("7", "x")
     assert pending_drafts(tmp_path, "zulip") == []
+
+
+def test_delete_removes_my_message_and_refuses_someone_elses(tmp_path: Path) -> None:
+    seen = Seen(messages=[row(7, ME), row(8, "alex@example.com")])
+    with serve(seen) as base:
+        src = source(tmp_path, base)
+        assert src.delete("7") == "7"
+        with pytest.raises(MiseError, match="message 8 is not yours"):
+            src.delete("8")
+    assert seen.deletes == ["/api/v1/messages/7"]

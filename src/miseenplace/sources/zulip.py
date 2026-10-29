@@ -176,6 +176,18 @@ def edit_failure(message_id: str, detail: str) -> str:
     return f"zulip refused the edit of message {message_id}: {detail or 'no reason given'}"
 
 
+def delete_failure(message_id: str, detail: str) -> str:
+    """Zulip's refusal of a message delete, as a reason the caller can act on."""
+    low = detail.lower()
+    if "time limit" in low:
+        return f"delete window expired for message {message_id}; ask an admin to remove it"
+    if "not allowed to delete" in low or "permission" in low:
+        return f"this organization does not let you delete message {message_id}; ask an admin"
+    if "invalid message" in low:
+        return f"no message {message_id}, or this account cannot access it"
+    return f"zulip refused the delete of message {message_id}: {detail or 'no reason given'}"
+
+
 class Client:
     def __init__(self, creds: Credentials) -> None:
         self.creds = creds
@@ -210,7 +222,7 @@ class Client:
             error.detail = error_msg(e)
             raise error from None
         except urllib.error.URLError as e:
-            refused = (post or method == "PATCH") and isinstance(
+            refused = (post or method in ("PATCH", "DELETE")) and isinstance(
                 e.reason, ConnectionRefusedError | socket.gaierror
             )
             raise (SendRefused if refused else SourceError)(
@@ -471,6 +483,24 @@ class ZulipSource:
         if not m.mine or m.target is None:
             raise MiseError(f"message {message_id} is not yours")
         return self.outbox.draft(replace(m.target, label=m.where, edit_of=message_id), text)
+
+    def delete(self, message_id: str) -> str:
+        """Delete one of my own messages now (no draft): check it is mine, then DELETE it."""
+        if not message_id.isdigit():
+            raise MiseError(f"bad zulip message id {message_id!r}")
+        try:
+            m = self.message(message_id)
+        except SourceError as e:
+            if "invalid message" not in e.detail.lower():
+                raise
+            raise MiseError(delete_failure(message_id, e.detail)) from None
+        if not m.mine:
+            raise MiseError(f"message {message_id} is not yours")
+        try:
+            self.client.call(f"messages/{message_id}", method="DELETE")
+        except SendRefused as e:
+            raise MiseError(delete_failure(message_id, e.detail)) from None
+        return message_id
 
     def _patch(self, message_id: str, text: str) -> str:
         try:

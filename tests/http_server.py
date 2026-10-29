@@ -30,6 +30,7 @@ class Seen:
     patches: list[tuple[str, dict[str, list[str]]]] = field(
         default_factory=list
     )  # PATCH path, body
+    deletes: list[str] = field(default_factory=list)  # DELETE paths
 
 
 def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
@@ -81,6 +82,10 @@ def handler_for(seen: Seen) -> type[BaseHTTPRequestHandler]:
                 self.reply(400, json.dumps(err).encode())
             else:
                 self.reply(200, b'{"result":"success","msg":""}')
+
+        def do_DELETE(self) -> None:
+            seen.deletes.append(self.path)
+            self.reply(200, b'{"result":"success","msg":""}')
 
         def editable(self) -> bool:
             known = [int(m["id"]) for m in seen.messages] + seen.unreadable  # type: ignore[call-overload]

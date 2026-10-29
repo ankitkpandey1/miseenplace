@@ -48,7 +48,7 @@ from miseenplace.model import (
 )
 from miseenplace.render import brief, diary_line, format_message, line, standup
 from miseenplace.sources import open_source
-from miseenplace.sources.base import Digestible, Editable, Lookup, Source, SourceError
+from miseenplace.sources.base import Deletable, Digestible, Editable, Lookup, Source, SourceError
 from miseenplace.storage.base import Storage, StorageError
 from miseenplace.store import Store
 from miseenplace.tour import tour
@@ -71,8 +71,8 @@ default_actor = "agent"
 # participation_days = 14
 """
 SOURCE_CMDS = (
-    "new", "thread", "digest", "today", "draft", "drafts", "send", "edit", "users", "inbox",
-    "triage", "watch",
+    "new", "thread", "digest", "today", "draft", "drafts", "send", "edit", "delete", "users",
+    "inbox", "triage", "watch",
 )  # fmt: skip
 
 
@@ -241,6 +241,8 @@ def add_inbox_parsers(
     )
     e.add_argument("message_id", help="id of one of your messages, e.g. printed by `send`")
     e.add_argument("text", help="the new text, or - to read stdin")
+    dl = sub.add_parser("delete", help="delete one of your messages")
+    dl.add_argument("message_id", help="id of one of your messages, e.g. printed by `send`")
     u = sub.add_parser("users", help="look up people")
     u.add_argument("query")
 
@@ -685,6 +687,12 @@ def run_edit(src: Source, a: argparse.Namespace) -> None:
     print(f"send: miseenplace send {d.id}   (only after the human says yes to this text)")
 
 
+def run_delete(src: Source, a: argparse.Namespace) -> None:
+    if not isinstance(src, Deletable):
+        raise MiseError(f"source {src.name!r} does not offer delete")
+    print(f"deleted {src.name} message {src.delete(a.message_id)}")
+
+
 def run_source_cmd(store: Store, a: argparse.Namespace) -> None:
     if a.cmd == "watch":  # opens its own source each cycle: a bad login is logged, not fatal
         make = partial(open_source, source_name(a), store.root, store.config)
@@ -722,6 +730,8 @@ def run_source_cmd(store: Store, a: argparse.Namespace) -> None:
         print(f"edited {src.name} message {ref}" if edit_of else f"sent {src.name} message {ref}")
     elif a.cmd == "edit":
         run_edit(src, a)
+    elif a.cmd == "delete":
+        run_delete(src, a)
     else:
         for p in src.users(a.query):
             print(f"{p.name}\t{p.handle}\tbot={p.bot}")
