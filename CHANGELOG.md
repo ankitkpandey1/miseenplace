@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- `mep status [--topic T] [--who NAME] [--json]`: a live snapshot that cannot be stale, one line per entry. **On you** (kind `mine`, not waiting) and **Waiting on others** (state `waiting`, with `who`) show each item's latest note on one line. **PRs** lists every GitHub PR ref of an open item, read from `gh pr view -R OWNER/REPO` at run time, in parallel with a 30 s timeout each: `owner/repo#N STATE review=... ci=pass|fail|pending|none SHA7 · #ID title`. A PR `gh` cannot read keeps its line with `gh: <error>`; an open item whose PRs are all MERGED or CLOSED is flagged with `mep done ID`. The `journal` skill points to it.
+
 ## 0.5.1
 
 - `mep delete MESSAGE_ID`: delete one of your own messages, at once and irreversibly (no draft; the one write that skips `send`). It checks read-only that the message is yours first, then calls Zulip `DELETE /messages/{id}` and prints `deleted SOURCE message ID`. Exit 1 with a reason when it is not yours, does not exist or cannot be read, or the organization disallows deletion or its time limit has passed. Sources opt in with an optional `delete(message_id) -> str` (`Deletable`).

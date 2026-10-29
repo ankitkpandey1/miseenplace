@@ -6,7 +6,7 @@
       "name": "miseenplace",
       "source": "./",
       "description": "Every ask, in its place. Journal, inbox triage, inbox watch, style learning and setup skills for agents.",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "category": "productivity",
       "keywords": ["productivity", "inbox", "action-items", "standup"]
     }

@@ -36,6 +36,7 @@ Reads back the few lessons, facts and recipes that match this task, so you start
 | What first? | `mep top` |
 | Everything about one item or topic | `mep brief ID_OR_TOPIC` |
 | Which open items went stale (replied in chat, PR merged) | `mep reconcile` (dry run, one line per change); show it, then `mep reconcile --apply` only on the user's yes; add `--sync` to publish |
+| Live status: what is on the user, what is waiting, where every PR stands now (never answer "status?" from memory) | `mep status` (add `--topic T`, `--who NAME`, `--json`); it asks GitHub at run time, one line per entry; for an item flagged `! ... every PR is closed` run `mep done ID` on the user's yes |
 | Stand-up | `mep standup --since yesterday` |
 
 ## Rules

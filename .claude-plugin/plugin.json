@@ -1,6 +1,6 @@
 {
   "name": "miseenplace",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Every ask, in its place. Skills that turn chat asks, promises and nudges into a prioritized action list, with a consent gate before anything is posted.",
   "license": "Apache-2.0",
   "keywords": ["productivity", "inbox", "action-items", "standup", "agent-skills"],

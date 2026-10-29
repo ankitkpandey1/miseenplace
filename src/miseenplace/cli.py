@@ -19,6 +19,7 @@ from miseenplace import (
     recipes,
     reconcile,
     stats,
+    status,
     today,
     update,
 )
@@ -178,6 +179,10 @@ def add_journal_parsers(
     rc.add_argument("--apply", action="store_true", help="make the changes (default: print only)")
     rc.add_argument("--sync", action="store_true", help="with --apply: run sync afterwards")
     rc.add_argument("--by", help="actor to attribute the writes to")
+    sn = sub.add_parser("status", help="live snapshot: what is on you, waiting, and PR state now")
+    sn.add_argument("--topic", help="exact topic, case-insensitive")
+    sn.add_argument("--who", help="substring, case-insensitive")
+    sn.add_argument("--json", action="store_true", help="machine-readable output")
     st = sub.add_parser("stats", help="how long people wait on you: latency, reviews, the trend")
     st.add_argument("--days", type=positive, help="window in days (default 7)")
     st.add_argument("--delta", action="store_true", help="last 7 days against the previous 14")
@@ -580,6 +585,12 @@ def run_reconcile(store: Store, a: argparse.Namespace) -> None:
         print(reconcile.report(changes, False))
 
 
+def run_status(store: Store, a: argparse.Namespace) -> None:
+    items = select(store.load()[1], topic=a.topic, who=a.who)
+    prs = status.fetch_all(items, status.status_fetcher())
+    print(status.as_json(items, prs) if a.json else status.render(items, prs))
+
+
 def run_stats(store: Store, a: argparse.Namespace) -> None:
     if not a.record and (a.focus or a.stress):
         raise MiseError("--focus and --stress go with --record")
@@ -949,7 +960,18 @@ def change_recipes(st: Storage, a: argparse.Namespace) -> None:
 # ---- entry --------------------------------------------------------------------
 
 
-READ_CMDS = ("list", "top", "brief", "resume", "standup", "reconcile", "stats", "asks", "recall")
+READ_CMDS = (
+    "list",
+    "top",
+    "brief",
+    "resume",
+    "standup",
+    "reconcile",
+    "status",
+    "stats",
+    "asks",
+    "recall",
+)
 NO_AUTO_UPDATE = ("send", "update", "skills")
 
 
@@ -1011,6 +1033,8 @@ def run(a: argparse.Namespace) -> None:
         run_source_cmd(store, a)
     elif a.cmd == "reconcile":
         run_reconcile(store, a)
+    elif a.cmd == "status":
+        run_status(store, a)
     elif a.cmd == "stats":
         run_stats(store, a)
     elif a.cmd == "note-request":
