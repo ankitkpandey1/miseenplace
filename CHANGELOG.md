@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.5.1
 
+- `mep delete MESSAGE_ID`: delete one of your own messages, at once and irreversibly (no draft; the one write that skips `send`). It checks read-only that the message is yours first, then calls Zulip `DELETE /messages/{id}` and prints `deleted SOURCE message ID`. Exit 1 with a reason when it is not yours, does not exist or cannot be read, or the organization disallows deletion or its time limit has passed. Sources opt in with an optional `delete(message_id) -> str` (`Deletable`).
 - An item can carry the Claude Code sessions that work on it. `mep set|add --session UUID[@CWD]` attaches one (repeatable; the cwd defaults to the current directory and is stored absolute; a uuid already on the item moves to the newest with its new cwd; `--session ''` clears all). `mep resume ITEM` prints `cd CWD && claude --resume UUID`, one line per session, newest first; ITEM is an id, a unique title substring, a PR/issue url or `repo#N` matched against the item's refs; exit 1 when there is none. `mep brief` shows a `session:` line with the full command, `mep list` a `[session xN]` marker. New item field `sessions` (a list, default `[]`); logs written before it replay unchanged.
 - `mep edit` says "no message ID, or this account cannot access it (not subscribed to its channel?)" when Zulip answers "Invalid message(s)". Zulip gives that answer both for an id that does not exist and for a message in a channel the account is not subscribed to, even one the account sent (a bot that posts to a channel it never joined cannot read or edit its own message there).
 - Stored drafts and inbox items written by a newer version load in an older one: unknown keys are ignored instead of crashing `mep watch` with `TypeError ... unexpected keyword argument 'edit_of'`. An edit draft read by a version that does not know `edit_of` still cannot be sent: its hash covers `edit_of`, so `send` refuses it as modified.
