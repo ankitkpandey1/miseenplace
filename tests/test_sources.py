@@ -134,6 +134,12 @@ def test_zulip_reply_uses_zulips_quote_format() -> None:
     assert text.endswith("\n\nyes")
 
 
+def test_zulip_reply_nests_a_quote_inside_the_quoted_message() -> None:
+    inner = "@_**Sam|12** [said](x):\n````quote\naddressed\n````\n\nfixed"
+    text = quote_reply(payload(content=inner), "https://z.example", "approved")
+    assert "\n`````quote\n" + inner + "\n`````\n\napproved" in text
+
+
 def test_credentials_from_env_rc_and_hidden_key(tmp_path: Path) -> None:
     env = {
         "ZULIP_EMAIL": "a@example.com",

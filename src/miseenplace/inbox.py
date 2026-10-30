@@ -39,7 +39,7 @@ PROMISE_RE = re.compile(
     re.IGNORECASE,
 )
 MENTION_RE = re.compile(r"@_?\*\*([^*|]+)(?:\|\d+)?\*\*")
-QUOTE_RE = re.compile(r"```quote.*?```", re.DOTALL)
+QUOTE_RE = re.compile(r"(`{3,}) ?quote.*?\1", re.DOTALL)
 SAID_RE = re.compile(r"^\s*@?_?\*\*[^*]+\*\*\s*\[said\]\([^)]*\):?")  # a quote-reply's header
 URL_RE = re.compile(r"https?://[^\s)>\]]+")
 

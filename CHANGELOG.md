@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Quote replies to a message that itself quotes another now render: the quote fence is one backtick longer than any run inside the quoted text (it was always three, so the inner fence closed the outer one).
 - `mep drafts --discard ID ...`: throw away unsent drafts. A discarded draft is not listed and `send` refuses it; a sent, unconfirmed or mid-send draft cannot be discarded.
 
 ## 0.5.2

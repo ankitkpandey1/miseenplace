@@ -117,3 +117,12 @@ def test_a_reply_to_a_thread_makes_the_earlier_ask_disappear(root: Path) -> None
     mep(root, "send", drafted.split("miseenplace send ")[1].split()[0])
     assert (root / "demo" / "sent.jsonl").exists()  # it was really sent
     assert "5" not in ids(mep(root, "inbox", "--cursor", "demo"))
+
+
+def test_compact_strips_a_quote_nested_in_a_quote_and_the_incoming_spaced_form() -> None:
+    from miseenplace.inbox import compact
+
+    inner = "@_**Lee|2** [said](y):\n````quote\nold\n````\n\nmid"
+    nested = f"@_**Sam|1** [said](x):\n`````quote\n{inner}\n`````\n\nplease review"
+    assert compact(nested, 200) == "please review"
+    assert compact("``` quote\nhello\n```\nthanks", 200) == "thanks"

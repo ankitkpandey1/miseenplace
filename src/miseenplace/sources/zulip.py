@@ -14,6 +14,7 @@ import base64
 import configparser
 import json
 import os
+import re
 import socket
 import sys
 import time
@@ -276,7 +277,10 @@ def quote_reply(m: ZMessage, site: str, text: str) -> str:
     """Zulip's own quote format: the reply starts by quoting the message it answers."""
     link = f"{site}/#narrow/id/{m['id']}"
     who = f"@_**{m['sender_full_name']}|{m['sender_id']}**"
-    return f"{who} [said]({link}):\n```quote\n{m['content'].strip()}\n```\n\n{text}"
+    body = m["content"].strip()
+    # a fence longer than any backtick run inside, so a quote in the quoted message nests
+    fence = "`" * max(3, max(map(len, re.findall(r"`+", body)), default=0) + 1)
+    return f"{who} [said]({link}):\n{fence}quote\n{body}\n{fence}\n\n{text}"
 
 
 class ZulipSource:
