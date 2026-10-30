@@ -26,7 +26,7 @@ from miseenplace import (
 from miseenplace.assets import skills_dir
 from miseenplace.chat import Message, Target
 from miseenplace.config import CONFIG_NAME, load_config, resolve_root
-from miseenplace.consent import mark_draft, pending_drafts
+from miseenplace.consent import discard_draft, mark_draft, pending_drafts
 from miseenplace.inbox import (
     Inbox,
     InboxItem,
@@ -245,7 +245,8 @@ def add_inbox_parsers(
     add_target_args(d)
     d.add_argument("--reply-to", help="id of the message to quote-reply to")
     d.add_argument("text", help="message text, or - to read stdin")
-    sub.add_parser("drafts", help="list drafts not yet sent")
+    dl = sub.add_parser("drafts", help="list drafts not yet sent, or discard some")
+    dl.add_argument("--discard", nargs="+", metavar="ID", help="throw these unsent drafts away")
     s = sub.add_parser("send", help="post a stored draft; takes only a draft id")
     s.add_argument("draft_id", help="id printed by `draft`, after the human said yes to its text")
     verdict = s.add_mutually_exclusive_group()
@@ -749,6 +750,9 @@ def run_source_cmd(store: Store, a: argparse.Namespace) -> None:
         d = src.draft(target_of(a), read_text(a.text))
         print(d.preview())
         print(f"send: miseenplace send {d.id}   (only after the human says yes to this text)")
+    elif a.cmd == "drafts" and a.discard:
+        for draft_id in a.discard:
+            print(f"draft {discard_draft(store.root, src.name, draft_id).id} discarded")
     elif a.cmd == "drafts":
         for d in pending_drafts(store.root, src.name):
             print(d.preview())

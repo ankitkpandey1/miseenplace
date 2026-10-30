@@ -58,7 +58,7 @@ class Draft:
     sha256: str  # covers the destination and the text
     created: str
     created_ts: float = 0.0
-    status: str = "drafted"  # drafted | sent | unknown
+    status: str = "drafted"  # drafted | sent | unknown | discarded
     sent_ref: str | None = None
 
     def preview(self) -> str:
@@ -186,6 +186,8 @@ class Outbox:
             raise ConsentError(f"draft {d.id} was already sent (ref {d.sent_ref})")
         if d.status == "unknown":
             raise ConsentError(f"draft {d.id}: delivery was not confirmed. {self._recovery(d.id)}")
+        if d.status == "discarded":
+            raise ConsentError(f"draft {d.id} was discarded; draft again")
         if digest(d.target, d.text) != d.sha256:
             raise ConsentError(f"draft {d.id} was modified after it was drafted; draft again")
         if self._expired(d):
@@ -217,6 +219,17 @@ class Outbox:
         claim.unlink(missing_ok=True)
         return updated
 
+    def discard(self, draft_id: str) -> Draft:
+        """Throw away an unsent draft so it is never sent and no longer listed."""
+        d = self.get(draft_id)
+        if d.status != "drafted" or self._claim_path(draft_id).exists():
+            raise ConsentError(
+                f"draft {draft_id} is {d.status}; only an unsent draft can be discarded"
+            )
+        discarded = Draft(**{**asdict(d), "target": d.target, "status": "discarded"})
+        self._write(discarded)
+        return discarded
+
     def _write(self, d: Draft) -> None:
         private.write_text(self._path(d.id), json.dumps(asdict(d), indent=1))
 
@@ -233,3 +246,8 @@ def pending_drafts(root: Path, source: str) -> list[Draft]:
 def mark_draft(root: Path, source: str, draft_id: str, sent: bool) -> Draft:
     """Record the human's verdict on a draft whose delivery is unconfirmed."""
     return Outbox(root, source, _cannot_deliver).mark(draft_id, sent)
+
+
+def discard_draft(root: Path, source: str, draft_id: str) -> Draft:
+    """Throw away an unsent draft of `source`."""
+    return Outbox(root, source, _cannot_deliver).discard(draft_id)

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `mep drafts --discard ID ...`: throw away unsent drafts. A discarded draft is not listed and `send` refuses it; a sent, unconfirmed or mid-send draft cannot be discarded.
+
 ## 0.5.2
 
 - `mep status [--topic T] [--who NAME] [--json]`: a live snapshot that cannot be stale, one line per entry. **On you** (kind `mine`, not waiting) and **Waiting on others** (state `waiting`, with `who`) show each item's latest note on one line. **PRs** lists every GitHub PR ref of an open item, read from `gh pr view -R OWNER/REPO` at run time, in parallel with a 30 s timeout each: `owner/repo#N STATE review=... ci=pass|fail|pending|none SHA7 · #ID title`. A PR `gh` cannot read keeps its line with `gh: <error>`; an open item whose PRs are all MERGED or CLOSED is flagged with `mep done ID`. The `journal` skill points to it.

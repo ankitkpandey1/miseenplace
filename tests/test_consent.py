@@ -104,3 +104,20 @@ def test_reply_quotes_the_message_and_shows_where_it_goes(src: DemoSource) -> No
     assert d.text.startswith("> Changelog still pending, ETA?")
     assert d.text.endswith("Thursday")
     assert "release 2.4" in d.preview()
+
+
+def test_a_discarded_draft_is_not_listed_and_cannot_be_sent(src: DemoSource) -> None:
+    d = src.draft(CHANNEL, "never mind")
+    src.outbox.discard(d.id)
+    assert d.id not in [x.id for x in src.outbox.pending()]
+    with pytest.raises(ConsentError):
+        src.send(d.id)
+    assert sent_lines(src) == []
+
+
+def test_a_sent_draft_cannot_be_discarded(src: DemoSource) -> None:
+    d = src.draft(CHANNEL, "posted")
+    src.send(d.id)
+    with pytest.raises(ConsentError, match="only an unsent draft"):
+        src.outbox.discard(d.id)
+    assert src.outbox.get(d.id).status == "sent"

@@ -27,7 +27,7 @@ Rules:
 
 ## The consent gate
 
-`draft` stores exact text; `send` takes only a draft id, posts the stored text once and verifies its hash. A free-text send is refused. The hash covers the destination and the text, so editing either fails the check. Drafts expire after 24 hours (`[consent] draft_ttl_hours` in `config.toml`). If a send times out or the answer is cut off, the draft becomes `unknown` and is never resent automatically: check the thread, then run `mep send DRAFT --mark-sent` or `--mark-unsent`. A send cut off by a crash leaves a `.sending` claim with the same recovery.
+`draft` stores exact text; `send` takes only a draft id, posts the stored text once and verifies its hash. A free-text send is refused. The hash covers the destination and the text, so editing either fails the check. Drafts expire after 24 hours (`[consent] draft_ttl_hours` in `config.toml`). If a send times out or the answer is cut off, the draft becomes `unknown` and is never resent automatically: check the thread, then run `mep send DRAFT --mark-sent` or `--mark-unsent`. `mep drafts --discard DRAFT` throws an unsent draft away; a discarded draft is never sent. A send cut off by a crash leaves a `.sending` claim with the same recovery.
 
 What it is: a structural guard against an agent posting text you never saw, by mistake or by prompt injection through chat content.
 
